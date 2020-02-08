@@ -1,0 +1,60 @@
+@page {
+    size: 5.5in 8.5in;
+  }
+
+  @page :left {
+    margin-left: 3cm;
+  }
+  
+  @page :right {
+    margin-left: 4cm;
+  }
+
+#page_doc {
+    position: absolute;
+    top: 0cm;
+    left: 0cm;
+    width: 21.5cm;
+    height: 28cm;
+    max-width: 21.5cm;
+    max-height: 28cm;
+    overflow: hidden; 
+    border: 3px solid #73AD21;
+}
+
+#from {
+    position: absolute;
+    top: 4cm;
+    left: 2.8cm;
+    width: 8cm;
+    height: 3.25cm;
+    max-width: 8cm;
+    max-height: 3.25cm;
+    overflow: hidden; 
+    border: 3px solid #73AD21;
+}
+
+#to {
+    position: absolute;
+    top: 1in;
+    right: 1in;
+    width: 3in;
+    height: 1.5in;
+    max-width: 3in;
+    max-height: 1.5in;
+    overflow: hidden; 
+    border: 3px solid #73AD21;
+}
+
+#main {
+    position: absolute;
+    top: 3in;
+    left: 1in;
+    width: 3.5in;
+    height: 6in;
+    max-width: 3.5in;
+    max-height: 6in;
+    overflow: hidden; 
+    border: 3px solid #73AD21;
+}
+
