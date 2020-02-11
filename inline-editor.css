@@ -1,60 +1,84 @@
 @page {
-    size: 5.5in 8.5in;
-  }
-
-  @page :left {
-    margin-left: 3cm;
-  }
-  
-  @page :right {
-    margin-left: 4cm;
-  }
-
-#page_doc {
-    position: absolute;
-    top: 0cm;
-    left: 0cm;
-    width: 21.5cm;
-    height: 28cm;
-    max-width: 21.5cm;
-    max-height: 28cm;
-    overflow: hidden; 
-    border: 3px solid #73AD21;
+  size: 21.5cm 28cm;
 }
 
-#from {
-    position: absolute;
-    top: 4cm;
-    left: 2.8cm;
-    width: 8cm;
-    height: 3.25cm;
-    max-width: 8cm;
-    max-height: 3.25cm;
-    overflow: hidden; 
-    border: 3px solid #73AD21;
+@page :left {
+  margin-left: 3cm;
+}
+  
+@page :right {
+  margin-left: 4cm;
+}
+
+#page_doc {
+  position: absolute;
+  top: 1cm;
+  left: 2cm;
+  width: 21.5cm;
+  height: 28cm;
+  max-width: 21.5cm;
+  max-height: 28cm;
+  overflow: hidden; 
+  border: 3px solid #000000;
+  padding: 0px;
+  margin: 0px;
+/*#  box-shadow: 5px 10px 8px #888888; */
+  box-shadow: 20px 20px 50px 15px grey;
+}
+
+#logo {
+  position: absolute;
+  top: 0.8cm;
+  left: 2.8cm;
+  width: 5cm;
+  height: 2.5cm;
+  max-width: 5cm;
+  max-height: 2.5cm;
+  overflow: hidden; 
+  border: 1px solid #000000;
+  padding: 0px;
+  margin: 0px;
 }
 
 #to {
-    position: absolute;
-    top: 1in;
-    right: 1in;
-    width: 3in;
-    height: 1.5in;
-    max-width: 3in;
-    max-height: 1.5in;
-    overflow: hidden; 
-    border: 3px solid #73AD21;
+  position: absolute;
+  top: 4.5cm;
+  left: 2.8cm;
+  width: 5.5cm;
+  height: 3.4cm;
+  max-width: 5.5cm;
+  max-height: 3.4cm;
+  overflow: hidden; 
+  border: 1px solid #000000;
+  padding: 0px;
+  margin: 0px;
+}
+
+#from {
+  position: absolute;
+  top: 0.8cm;
+  right: 1.5cm;
+  width: 5.5cm;
+  height: 4.5cm;
+  max-width: 5.5cm;
+  max-height: 4.5cm;
+  overflow: hidden; 
+  border: 1px solid #000000;
+  padding: 0px;
+  margin: 0px;
 }
 
 #main {
-    position: absolute;
-    top: 3in;
-    left: 1in;
-    width: 3.5in;
-    height: 6in;
-    max-width: 3.5in;
-    max-height: 6in;
-    overflow: hidden; 
-    border: 3px solid #73AD21;
+  position: absolute;
+  top: 8cm;
+  left: 1cm;
+  width: 19.5cm;
+  height: 19cm;
+  max-width: 19.5cm;
+  max-height: 19cm;
+  overflow: hidden; 
+  padding: 0px;
+  margin: 0px;
+  border: 1px solid #000000;
 }
 

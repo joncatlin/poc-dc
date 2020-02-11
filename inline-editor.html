@@ -2,15 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>CKEditor 5 - Inline editor</title>
+    <title>Example of print layout</title>
     <script src="https://cdn.ckeditor.com/ckeditor5/16.0.0/inline/ckeditor.js"></script>
     <link rel="stylesheet" type="text/css" href="./inline-editor.css" />
 </head>
 <body>
     <div id="page_doc">
-        <h1>Inline editor example, with fixed position elements for to, text and logo boxes</h1>
+
+        <div id="logo">
+            <p>Logo goes here.</p>
+        </div>
+        <script>
+            InlineEditor
+                .create( document.querySelector( '#logo' ), {
+                    toolbar: [ 'image' ]
+                } )
+                .catch( error => {
+                    console.error( error );
+                } );
+        </script>
         <div id="from">
-            <p>This is some sample content.</p>
+            <p>From address</p>
         </div>
         <script>
             InlineEditor
@@ -20,7 +32,7 @@
                 } );
         </script>
         <div id="to">
-            <p>This is the from div</p>
+            <p>To address</p>
         </div>
         <script>
             InlineEditor
