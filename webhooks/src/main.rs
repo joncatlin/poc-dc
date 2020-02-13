@@ -40,6 +40,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .service(sms_status_update)
+            .service(sms_status_update2)
     })
     .bind("127.0.0.1:8088")?
     .run()
@@ -58,14 +59,46 @@ async fn sms_status_update(body: Bytes) -> Result<HttpResponse, Error> {
     // body is loaded, now we can deserialize json-rust
     let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
     let injson: JsonValue = match result {
-        Ok(v) => v,
-        Err(e) => json::object! {"err" => e.to_string() },
+        Ok(v) => { 
+            info!("EVENT-{}", v.stringify());
+            return Ok(HttpResponse::Ok()
+                .content_type("application/json")
+                .body(v.dump()));
+        },
+        Err(e) => {
+            error!("EVENT-body contained {} and parse error was: {}", std::str::from_utf8(&body).unwrap(), e.to_string());
+            return Ok(HttpResponse::StatusCode::BAD_REQUEST.as_u16()
+                .content_type("application/json")
+                .body(json::object! {"err" => e.to_string()}));
+        }
     };
 
-    info!("EVENT-{}", injson.dump());
 
     // Ok(HttpResponse::Ok()
     //     .content_type("application/json")
     //     .body(injson.dump()))
-    Ok(HttpResponse::Ok())
+//    Ok(HttpResponse::Ok())
+
+//StatusCode::BAD_REQUEST.as_u16()
+    // Generate a 400 status code when the json is invalid
+}
+
+
+#[post("/sms2")]
+async fn sms_status_update2(body: Bytes) -> Result<HttpResponse, Error> {
+    // body is loaded, now we can deserialize json-rust
+    let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
+    let injson: JsonValue = match result {
+        Ok(v) => v,
+        Err(e) => json::object! {"err" => e.to_string()},
+    };
+
+
+    Ok(HttpResponse::Ok()
+        .content_type("application/json")
+        .body(injson.dump()))
+//    Ok(HttpResponse::Ok())
+
+//StatusCode::BAD_REQUEST.as_u16()
+    // Generate a 400 status code when the json is invalid
 }
