@@ -2,6 +2,16 @@ use actix_web::{post, get, web, App, Error, HttpResponse, HttpServer, Responder}
 use json::JsonValue;
 use bytes::Bytes; 
 
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+extern crate chrono;
+
+use std::io::Write;
+use chrono::Local;
+use env_logger::Builder;
+use log::LevelFilter;
+
 async fn index() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
 }
@@ -12,13 +22,24 @@ async fn index2() -> impl Responder {
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
+
+    // Initialize the logger for stdout
+    Builder::new()
+        .format(|buf, record| {
+            writeln!(buf,
+                "{} [{}] - {}",
+                Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                record.level(),
+                record.args()
+            )
+        })
+        .filter(None, LevelFilter::Info)
+        .init();
+
+    // Start the HTTP Server and register all of the endpoints
     HttpServer::new(|| {
         App::new()
-            .route("/", web::get().to(index))
-            .route("/again", web::get().to(index2))
-            .service(index3)
-            .service(sms)
-            .service(sms2)
+            .service(sms_status_update)
     })
     .bind("127.0.0.1:8088")?
     .run()
@@ -33,13 +54,7 @@ async fn index3() -> impl Responder {
 }
 
 #[post("/sms")]
-async fn sms() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
-
-
-#[post("/sms2")]
-async fn sms2(body: Bytes) -> Result<HttpResponse, Error> {
+async fn sms_status_update(body: Bytes) -> Result<HttpResponse, Error> {
     // body is loaded, now we can deserialize json-rust
     let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
     let injson: JsonValue = match result {
@@ -47,7 +62,10 @@ async fn sms2(body: Bytes) -> Result<HttpResponse, Error> {
         Err(e) => json::object! {"err" => e.to_string() },
     };
 
-    Ok(HttpResponse::Ok()
-        .content_type("application/json")
-        .body(injson.dump()))
+    info!("EVENT-{}", injson.dump());
+
+    // Ok(HttpResponse::Ok()
+    //     .content_type("application/json")
+    //     .body(injson.dump()))
+    Ok(HttpResponse::Ok())
 }
