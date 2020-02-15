@@ -11,6 +11,10 @@ use chrono::Local;
 use env_logger::Builder;
 use log::LevelFilter;
 
+// Body of the response when the msg processed successfully
+const OK_STATUS: &str = "{ \"status\" : \"Ok\" }";
+
+
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
 
@@ -39,7 +43,7 @@ async fn main() -> std::io::Result<()> {
 }
 
 
-#[post("/sms")]
+#[post("/csc/webhooks/sms")]
 async fn sms_hook(body: Bytes) -> Result<HttpResponse, Error> {
     // body is loaded, now we can deserialize json-rust
     let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
@@ -48,7 +52,7 @@ async fn sms_hook(body: Bytes) -> Result<HttpResponse, Error> {
             info!("EVENT-{}", v.dump());
             return Ok(HttpResponse::Ok()
                 .content_type("application/json")
-                .body(v.pretty(2)));
+                .body(OK_STATUS));
         },
         Err(e) => {
             warn!("EVENT-body contained {} and parse error was: {}", std::str::from_utf8(&body).unwrap(), e.to_string());
@@ -62,7 +66,7 @@ async fn sms_hook(body: Bytes) -> Result<HttpResponse, Error> {
 }
 
 
-#[post("/email")]
+#[post("/csc/webhooks/email")]
 async fn email_hook(body: Bytes) -> Result<HttpResponse, Error> {
     // body is loaded, now we can deserialize json-rust
     let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
@@ -71,7 +75,7 @@ async fn email_hook(body: Bytes) -> Result<HttpResponse, Error> {
             info!("EVENT-{}", v.dump());
             return Ok(HttpResponse::Ok()
                 .content_type("application/json")
-                .body(v.pretty(2)));
+                .body(OK_STATUS));
         },
         Err(e) => {
             warn!("EVENT-body contained {} and parse error was: {}", std::str::from_utf8(&body).unwrap(), e.to_string());
