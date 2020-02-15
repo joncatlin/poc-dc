@@ -30,7 +30,8 @@ async fn main() -> std::io::Result<()> {
     // Start the HTTP Server and register all of the endpoints
     HttpServer::new(|| {
         App::new()
-            .service(sms_status_update)
+            .service(sms_hook)
+            .service(email_hook)
         })
         .bind("127.0.0.1:8088")?
         .run()
@@ -39,7 +40,30 @@ async fn main() -> std::io::Result<()> {
 
 
 #[post("/sms")]
-async fn sms_status_update(body: Bytes) -> Result<HttpResponse, Error> {
+async fn sms_hook(body: Bytes) -> Result<HttpResponse, Error> {
+    // body is loaded, now we can deserialize json-rust
+    let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
+    match result {
+        Ok(v) => { 
+            info!("EVENT-{}", v.dump());
+            return Ok(HttpResponse::Ok()
+                .content_type("application/json")
+                .body(v.pretty(2)));
+        },
+        Err(e) => {
+            warn!("EVENT-body contained {} and parse error was: {}", std::str::from_utf8(&body).unwrap(), e.to_string());
+            let err_msg = json::object! {"err" => e.to_string()};
+            return Ok(HttpResponse::BadRequest()
+                .content_type("application/json")
+                .body(err_msg.dump()
+            ));
+        }
+    };
+}
+
+
+#[post("/email")]
+async fn email_hook(body: Bytes) -> Result<HttpResponse, Error> {
     // body is loaded, now we can deserialize json-rust
     let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
     match result {
