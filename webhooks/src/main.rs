@@ -1,10 +1,12 @@
 use actix_web::{post, web, App, Error, HttpResponse, HttpServer, Result};
 use bytes::Bytes; 
 
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
+#[macro_use] extern crate serde_derive;
+extern crate log; 
 extern crate env_logger;
 extern crate chrono;
+extern crate serde_json;
 
 use std::io::Write;
 use chrono::Local;
@@ -48,21 +50,26 @@ async fn main() -> std::io::Result<()> {
 
 #[derive(Serialize, Deserialize)]
 struct SMSData {
-    SmsSid: String,
+    MessageStatus: String,
+    MessageSid: String,
+    MessagingServiceSid: String,
+    AccountSid: String,
+    From: String,
+    ApiVersion: String,
+    To: String,
     SmsStatus: String,
+    SmsSid: String,
 }
 
-
-// var smsSid = Request.Form["SmsSid"];
-// var messageStatus = Request.Form["MessageStatus"];
 #[post("/csc/webhooks/sms")]
 async fn sms_hook(form: web::Form<SMSData>) -> Result<HttpResponse> {
+    let serialized = serde_json::to_string(&form).unwrap();
+    info!("EVENT-{}", serialized);
+
     Ok(HttpResponse::Ok()
         .content_type("text/plain")
-        .body(format!("Welcome smsSid={} ans messageStatus={}!", form.SmsSid, form.SmsStatus)))
+        .body(OK_STATUS))
 }
-
-
 
 // async fn sms_hook(form: web::Form<FormData>) -> Result<String> {
 
