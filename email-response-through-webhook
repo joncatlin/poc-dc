@@ -1,0 +1,66 @@
+
+Original sent
+[
+  {
+    "email": "jon.catlin@destini.com",
+    "event": "processed",
+    "send_at": 0,
+    "sg_event_id": "cHJvY2Vzc2VkLTE0OTEzODM3LWhxTUxSSHREVDB5MkptWGJ6MWQ1MlEtMA",
+    "sg_message_id": "hqMLRHtDT0y2JmXbz1d52Q.filterdrecv-p3mdw1-77d77b4d7d-rnqw2-19-5E483732-24.0",
+    "smtp-id": "<hqMLRHtDT0y2JmXbz1d52Q@ismtpd0005p1las1.sendgrid.net>",
+    "timestamp": 1581791026
+  },
+  {
+    "email": "jon.catlin@destini.com",
+    "event": "delivered",
+    "ip": "167.89.24.164",
+    "response": "250 2.0.0 OK  1581791028 j10si5520526edq.384 - gsmtp",
+    "sg_event_id": "ZGVsaXZlcmVkLTAtMTQ5MTM4MzctaHFNTFJIdERUMHkySm1YYnoxZDUyUS0w",
+    "sg_message_id": "hqMLRHtDT0y2JmXbz1d52Q.filterdrecv-p3mdw1-77d77b4d7d-rnqw2-19-5E483732-24.0",
+    "smtp-id": "<hqMLRHtDT0y2JmXbz1d52Q@ismtpd0005p1las1.sendgrid.net>",
+    "timestamp": 1581791028,
+    "tls": 1
+  }
+]
+
+
+
+Received after opening
+[
+  {
+    "email": "jon.catlin@destini.com",
+    "event": "open",
+    "ip": "68.228.215.240",
+    "sg_content_type": "html",
+    "sg_event_id": "Qq7l-t2vSm6gccTAj2_Hhg",
+    "sg_message_id": "hqMLRHtDT0y2JmXbz1d52Q.filterdrecv-p3mdw1-77d77b4d7d-rnqw2-19-5E483732-24.0",
+    "timestamp": 1581791285,
+    "useragent": "Mozilla/4.0 (compatible; ms-office; MSOffice 16)"
+  }
+]
+
+Bounce
+[
+  {
+    "email": "jon.catlin.rubish@destini.com",
+    "event": "processed",
+    "send_at": 0,
+    "sg_event_id": "cHJvY2Vzc2VkLTE0OTEzODM3LTBDU0I0WmpvUUd5YkJuT0VZd3d2d3ctMA",
+    "sg_message_id": "0CSB4ZjoQGybBnOEYwwvww.filterdrecv-p3iad2-cbc8f7585-rtgbh-18-5E4838CC-16.0",
+    "smtp-id": "<0CSB4ZjoQGybBnOEYwwvww@ismtpd0010p1las1.sendgrid.net>",
+    "timestamp": 1581791436
+  },
+  {
+    "email": "jon.catlin.rubish@destini.com",
+    "event": "bounce",
+    "ip": "167.89.17.173",
+    "reason": "550 5.1.1 The email account that you tried to reach does not exist. Please try double-checking the recipient's email address for typos or unnecessary spaces. Learn more at https://support.google.com/mail/?p=NoSuchUser rk12si5469001ejb.66 - gsmtp",
+    "sg_event_id": "Ym91bmNlLTAtMTQ5MTM4MzctMENTQjRaam9RR3liQm5PRVl3d3Z3dy0w",
+    "sg_message_id": "0CSB4ZjoQGybBnOEYwwvww.filterdrecv-p3iad2-cbc8f7585-rtgbh-18-5E4838CC-16.0",
+    "smtp-id": "<0CSB4ZjoQGybBnOEYwwvww@ismtpd0010p1las1.sendgrid.net>",
+    "status": "5.1.1",
+    "timestamp": 1581791437,
+    "tls": 1,
+    "type": "bounce"
+  }
+]

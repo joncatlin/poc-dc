@@ -1,0 +1,21 @@
+version: '3.7'
+
+services:
+
+  webhooks:
+    build:
+      context: ./webhooks
+#      dockerfile: ./webhooks/Dockerfile
+    image: webhooks
+    ports:
+      - "50012:80"
+    networks:
+      - webhooks
+
+networks:
+  webhooks:
+    driver: overlay
+
+# secrets:
+#   db_password:
+#     file: ./sql/db_password.txt
