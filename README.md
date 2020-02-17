@@ -13,10 +13,9 @@ Below is a list of the things that need to be investigated to understand what so
 
 # Webhook
 ## TODO
-1. Add SSL to the implementation
 2. Dockerize the solution
 3. Put secrets in for the cert etc
-4. Log the informaiton to the console so that the logging solution will pick it up
 5. Ensure that correct REST principles are implemented
 6. Transform all msgs into a standard format before sending them via Kafka so the responses are normalized
 7. Determine if the JSON response for email and whatsapp contain an array and if they do then parse the array breaking each one into its own msg
+8. Need to add unit tests for each webhook to ensure the correct response occurs
