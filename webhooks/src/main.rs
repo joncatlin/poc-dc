@@ -208,48 +208,7 @@ async fn whatsapp_hook(body: Bytes) -> Result<HttpResponse, Error> {
         Ok(v) => { 
             info!("EVENT-WHATSAPP-{}", v.dump());
 
-            // Ensure the timestamp is an i64 before converting it to the correct date/time format
-            let datetime = match v["timestamp"].as_i64() {
-                None => {
-                    // Log that the event received's timestamp is not i64 and default to using the time now
-                    warn!("Received a timestamp of: [{}] when expecting value of type 64 bit integer. Defaulting timstamp to time now. Full message received: {}",
-                        v["timestamp"], v.dump());
-                        Utc::now().to_rfc2822()
-                },
-                Some(i) => DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(i, 0), Utc).to_rfc2822()
-            };
-            
-            // Ensure the id is a string
-            let id = match v["smtp-id"].as_str() {
-                Some(s) => s, 
-                None => {
-                    // Log that the id is not a string
-                    warn!("Received a event with an id that is not a string: [{}]. Defaulting id to empty string. Full message received: {}",
-                        v["smtp_id"], v.dump());
-                    ""
-                }, 
-            };          
-
-            // Convert the status  
-            let status = match v["event"].as_str() {
-                Some(s) => s, 
-                None => {
-                    // Log that the statis is not a string
-                    warn!("Received an event status with that is not a string: [{}]. Defaulting status to \"unknown\". Full message received: {}",
-                        v["event"], v.dump());
-                    "unknown"
-                }, 
-            }; 
-            // TODO transform status to normalized status so it is ubiquitos across all event channels
-
-            
-            // Create an event to send to the rest of the system
-            let event = Event { 
-                id: id.to_string(), 
-                status: status.to_string(), 
-                datetime_rfc2822: datetime,
-                event_specific_data: v.dump(),
-            };
+            // TODO create the event
 
             // Send the event here
             info!("EVENT to be sent = {}", serde_json::to_string(&event).unwrap());
@@ -266,5 +225,52 @@ async fn whatsapp_hook(body: Bytes) -> Result<HttpResponse, Error> {
                 .body(err_msg.dump()
             ));
         }
+    };
+}
+
+
+
+//************************************************************************
+fn create_whatsapp_event() -> Event {
+    // Ensure the timestamp is an i64 before converting it to the correct date/time format
+    let datetime = match v["timestamp"].as_i64() {
+        None => {
+            // Log that the event received's timestamp is not i64 and default to using the time now
+            warn!("Received a timestamp of: [{}] when expecting value of type 64 bit integer. Defaulting timstamp to time now. Full message received: {}",
+                v["timestamp"], v.dump());
+                Utc::now().to_rfc2822()
+        },
+        Some(i) => DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(i, 0), Utc).to_rfc2822()
+    };
+
+    // Ensure the id is a string
+    let id = match v["smtp-id"].as_str() {
+        Some(s) => s, 
+        None => {
+            // Log that the id is not a string
+            warn!("Received a event with an id that is not a string: [{}]. Defaulting id to empty string. Full message received: {}",
+                v["smtp_id"], v.dump());
+            ""
+        }, 
+    };          
+
+    // Convert the status  
+    let status = match v["event"].as_str() {
+        Some(s) => s, 
+        None => {
+            // Log that the statis is not a string
+            warn!("Received an event status with that is not a string: [{}]. Defaulting status to \"unknown\". Full message received: {}",
+                v["event"], v.dump());
+            "unknown"
+        }, 
+    }; 
+    // TODO transform status to normalized status so it is ubiquitos across all event channels
+
+    // Create an event to send to the rest of the system
+    let event = Event { 
+        id: id.to_string(), 
+        status: status.to_string(), 
+        datetime_rfc2822: datetime,
+        event_specific_data: v.dump(),
     };
 }
