@@ -19,3 +19,19 @@ Below is a list of the things that need to be investigated to understand what so
 6. Transform all msgs into a standard format before sending them via Kafka so the responses are normalized
 7. Determine if the JSON response for email and whatsapp contain an array and if they do then parse the array breaking each one into its own msg
 8. Need to add unit tests for each webhook to ensure the correct response occurs
+
+## Building
+Using the crate rdkafka requires a change to the standard build process according to the documentation at: https://crates.io/crates/rdkafka see the Installation section of the documentation. Also refer to the docs at https://docs.rs/rdkafka/0.23.1/rdkafka/.
+
+### Change to Cargo.toml to build rdkafka
+Add the following line to the dependencies section in the cargo.toml file.
+```
+rdkafka = { version = "0.23", features = ["cmake-build"] }
+```
+
+### Commands used to install the build env on ubuntu
+```
+sudo apt install gcc
+sudo apt-get install build-essential
+sudo apt  install cmake
+```
