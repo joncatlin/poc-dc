@@ -8,13 +8,17 @@ services:
 #      dockerfile: ./webhooks/Dockerfile
     image: webhooks
     ports:
-      - "50012:80"
+      - "50012:8081"
     networks:
       - webhooks
+      - zoo_net
 
 networks:
   webhooks:
     driver: overlay
+  zoo_net:
+    driver: overlay
+
 
 # secrets:
 #   db_password:

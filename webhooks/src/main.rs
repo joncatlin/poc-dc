@@ -65,7 +65,7 @@ struct SMSData {
 const OK_STATUS: &str = "{ \"status\" : \"Ok\" }";
 
 // Struct to hold the webstate that is passed to every responder
-#[derive(Debug)]
+//#[derive(Debug)]
 struct WebStateForKafka {
     producer: BaseProducer,
 }
@@ -93,6 +93,12 @@ async fn main() -> std::io::Result<()> {
         .filter(None, LevelFilter::Info)
         .init();
 
+    // let producer: BaseProducer = ClientConfig::new()
+    //     .set("bootstrap.servers", "kafka1:19092,kafka2:19092,kafka3:19092")
+    //     .create()
+    //     .expect("Producer creation error");
+
+    // TODO Use a THreadedProducer but it was throwing type error that could not resolve/understand
     let producer: BaseProducer = ClientConfig::new()
         .set("bootstrap.servers", "kafka1:19092,kafka2:19092,kafka3:19092")
         .create()
@@ -168,13 +174,16 @@ async fn sms_hook(state: web::Data<WebStateForKafka>, form: web::Form<SMSFormDat
         event_specific_data: json_data,
     };
 
+    let payload = serde_json::to_vec(&event).unwrap();
+    let key = String::as_bytes(&event.id);
+
     // Send the event here
     state.producer.send(
         BaseRecord::to("destination_topic")
-            .payload(&event)
-            .key(&event.id),
+            .payload(&payload)
+            .key(key),
         ).expect("Failed to enqueue");
-
+    // TODO handle the return code properly
 
 
     info!("EVENT to be sent = {}", serde_json::to_string(&event).unwrap());
