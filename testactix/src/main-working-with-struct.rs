@@ -22,52 +22,8 @@ use std::cell::Cell;
 use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
-use std::ops::{Deref, DerefMut};
 
 use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer};
-
-#[derive(Debug)]
-struct MyState<T> {
-    mystruct: T,
-}
-
-impl<T> Deref for MyState<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.mystruct
-    }
-}
-
-impl<T> DerefMut for MyState<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.mystruct
-    }
-}
-
-
-
-
-
-
-
-
-// impl MyState {
-
-//     fn new(mystruct: WebStateForKafka) -> MyState {
-//         MyState { mystruct: mystruct }
-//     }
-
-// }
-
-// impl Deref for MyState {
-
-//     fn deref(&self) -> &mut WebStateForKafka {
-//         &self.mystruct
-//     }
-// }
-
-
 
 #[derive(Debug)]
 struct WebStateForKafka {
@@ -87,18 +43,18 @@ async fn index(
     counter1: web::Data<Mutex<usize>>,
     counter2: web::Data<Cell<u32>>,
     counter3: web::Data<AtomicUsize>,
-    state1: web::Data<MyState<WebStateForKafka>>,
+    state1: web::Data<WebStateForKafka>,
     req: HttpRequest,
 ) -> HttpResponse {
     println!("req={:?}", req);
     println!("state={:?}", state1);
-//    println!("state.name={} and counter={}", state1.name, state1.counter);
+    println!("state.name={} and counter={}", state1.name, state1.counter);
 
     // Increment the counters
     *counter1.lock().unwrap() += 1;
     counter2.set(counter2.get() + 1);
     counter3.fetch_add(1, Ordering::SeqCst);
-    state1.mystruct.counter += 1;
+//    state1.counter += 1;
     // let body = format!(
     //     "global mutex counter: {}, local counter: {}, global atomic counter: {}",
     //     *counter1.lock().unwrap(),
@@ -107,7 +63,7 @@ async fn index(
     // );
     let body = format!(
         "state1.counter: {}",
-        state1.mystruct.counter,
+        state1.counter,
     );
     HttpResponse::Ok().body(body)
 }
@@ -118,7 +74,7 @@ async fn main() -> io::Result<()> {
     env_logger::init();
 
     // Create some global state prior to building the server
-    let state1 = web::Data::new(MyState {mystruct: WebStateForKafka::new("InsideGrog".to_string(), 99) });
+    let state1 = web::Data::new(WebStateForKafka::new("Grog".to_string(), 99));
     let counter1 = web::Data::new(Mutex::new(0usize));
     let counter3 = web::Data::new(AtomicUsize::new(0usize));
 

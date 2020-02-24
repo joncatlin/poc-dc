@@ -1,0 +1,88 @@
+# TODO
+# 1. Secrets for Postgres username, password
+version: "3.7"
+
+services:
+
+  event-db:
+    image: postgres:11-alpine
+    environment:
+      POSTGRES_DB: event
+      POSTGRES_PASSWORD: event_pwd
+      POSTGRES_USER: event_user
+    volumes:
+      # Persist content outside of the container
+      - type: bind
+        source: /mnt/swarm-shared/joncatlin-development/shared-volumes/poc-dc/event-db
+        target: /var/lib/postgresql/data
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+#        delay: 30s
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2048M
+        reservations:
+          cpus: '1'
+          memory: 2048M
+    networks:
+      - event
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@domain.com
+      PGADMIN_DEFAULT_PASSWORD: password
+#      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
+      PGADMIN_CONFIG_LOGIN_BANNER: '"Authorised users only!"'
+      PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: 10
+    ports:
+      - "8082:80"
+    networks:
+      - event
+
+
+  pivotdataservice:
+    image: seektable/pivotdataservice:latest
+    expose:
+     - 5000
+    ports:
+     - 5200:5000
+    volumes:
+      # Persist content outside of the container
+      - type: bind
+        source: /mnt/swarm-shared/joncatlin-development/shared-volumes/poc-dc/pivotdataservice
+        target: /app-data/csv-files
+    env_file:
+      - ./seektable/docker-compose.pivotdataservice.env
+    networks:
+      - event
+
+
+  seektable:
+    image: seektable/seektable:latest
+    expose:
+     - 5000
+    ports:
+     - 8084:5000
+    volumes:
+      # Persist content outside of the container
+      - type: bind
+        source: /mnt/swarm-shared/joncatlin-development/shared-volumes/poc-dc/pivotdataservice
+        target: /app-data/csv-files
+      # Persist content outside of the container
+      - type: bind
+        source: /mnt/swarm-shared/joncatlin-development/shared-volumes/poc-dc/seektable
+        target: /app-data/db
+    env_file:
+      - ./seektable/docker-compose.seektable.env
+    networks:
+      - event
+     
+
+networks:
+  event:

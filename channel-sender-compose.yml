@@ -1,0 +1,29 @@
+version: '3.7'
+
+services:
+
+  channel_sender:
+    build:
+      context: ./channel_sender
+    image: channel_sender
+    # ports:
+    #   - "50012:8081"
+    secrets:
+      - account_id
+      - token
+    networks:
+      # - webhooks
+      - zoo_net
+
+networks:
+  # webhooks:
+  #   driver: overlay
+  zoo_net:
+    driver: overlay
+
+
+secrets:
+  account_id:
+    external: true
+  token:
+    external: true
