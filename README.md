@@ -35,3 +35,12 @@ sudo apt install gcc
 sudo apt-get install build-essential
 sudo apt  install cmake
 ```
+
+## Installing Diesel for postgres
+
+### Install Postgres
+sudo apt-get update
+sudo apt-get install -y postgresql postgresql-contrib libpq-dev
+
+### Install Diesel command line
+cargo install diesel_cli --no-default-features --features postgres
