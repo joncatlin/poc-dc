@@ -110,26 +110,25 @@ async fn main() -> std::io::Result<()> {
 fn kafka_poll(receiver: Receiver<Event>) {
 
     // Get the bootstrap servers and topic from the environment variables
-
     let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
         Ok(val) => val,
-        Err(e) => {
-            Err!("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
-            "unconfigured_kafka_bootstrap_servers"
-        }
-    }
+        Err(_e) => {
+            error!("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
+            "unconfigured_kafka_bootstrap_servers".to_string()
+        },
+    };
 
-    let bootstrap_servers = match env::var("KAFKA_TOPIC") {
+    let topic = match env::var("KAFKA_TOPIC") {
         Ok(val) => val,
-        Err(e) => {
-            Err!("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
-            "unconfigured_kafka_topic"
+        Err(_e) => {
+            error!("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
+            "unconfigured_kafka_topic".to_string()
         }
-    }
+    };
 
     // TODO handle the error correctly and decide what to do
     let producer: BaseProducer = ClientConfig::new()
-        .set("bootstrap.servers", "kafka1:19092,kafka2:19092,kafka3:19092")
+        .set("bootstrap.servers", &*bootstrap_servers)
         .create()
         .expect("Producer creation error");
 
@@ -149,7 +148,7 @@ fn kafka_poll(receiver: Receiver<Event>) {
             // Send the message to the topic
             // TODO handle the error correctly!
             producer.send(
-                BaseRecord::to("events")
+                BaseRecord::to(&*topic)
                     .payload(&payload)
                     .key(key),
                 ).expect("Failed to enqueue");

@@ -2,6 +2,7 @@
 extern crate log; 
 extern crate env_logger;
 
+use std::env;
 use futures::StreamExt;
 use env_logger::Builder;
 use log::LevelFilter;
@@ -40,16 +41,39 @@ impl ConsumerContext for CustomContext {
 // A type alias with your custom consumer can be created for convenience.
 type LoggingConsumer = StreamConsumer<CustomContext>;
 
+
+
 async fn consume_and_print() {
     let context = CustomContext;
 
-//    let topics = matches.values_of("topics").unwrap().collect::<Vec<&str>>()
+    // Get the bootstrap servers and topic from the environment variables
+    let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
+        Ok(val) => val,
+        Err(_e) => {
+            error!("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
+            "unconfigured_kafka_bootstrap_servers".to_string()
+        }
+    };
 
-let topic = "events";
+    let topic = match env::var("KAFKA_TOPIC") {
+        Ok(val) => val,
+        Err(_e) => {
+            error!("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
+            "unconfigured_kafka_topic".to_string()
+        }
+    };
+
+    let group_id = match env::var("KAFKA_GROUP_ID") {
+        Ok(val) => val,
+        Err(_e) => {
+            error!("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
+            "unconfigured_kafka_group_id".to_string()
+        }
+    };
 
     let consumer: LoggingConsumer = ClientConfig::new()
-        .set("group.id", "events_group_id")
-        .set("bootstrap.servers", "kafka1:19092,kafka2:19092,kafka3:19092")
+        .set("group.id", &*group_id)
+        .set("bootstrap.servers", &*bootstrap_servers)
         .set("enable.partition.eof", "false")
         .set("session.timeout.ms", "6000")
         .set("enable.auto.commit", "true")
