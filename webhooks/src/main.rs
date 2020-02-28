@@ -7,6 +7,7 @@ extern crate chrono;
 extern crate serde_json;
 extern crate serde_derive;
 
+use std::env;
 use actix_web::{post, web, App, Error, HttpResponse, HttpServer, Result};
 use bytes::Bytes; 
 use std::io::Write;
@@ -108,6 +109,24 @@ async fn main() -> std::io::Result<()> {
 //************************************************************************
 fn kafka_poll(receiver: Receiver<Event>) {
 
+    // Get the bootstrap servers and topic from the environment variables
+
+    let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
+        Ok(val) => val,
+        Err(e) => {
+            Err!("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
+            "unconfigured_kafka_bootstrap_servers"
+        }
+    }
+
+    let bootstrap_servers = match env::var("KAFKA_TOPIC") {
+        Ok(val) => val,
+        Err(e) => {
+            Err!("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
+            "unconfigured_kafka_topic"
+        }
+    }
+
     // TODO handle the error correctly and decide what to do
     let producer: BaseProducer = ClientConfig::new()
         .set("bootstrap.servers", "kafka1:19092,kafka2:19092,kafka3:19092")
@@ -136,9 +155,6 @@ fn kafka_poll(receiver: Receiver<Event>) {
                 ).expect("Failed to enqueue");
             
         }
-
-//        thread::sleep(Duration::from_millis(100));
-
     }
 }
 
