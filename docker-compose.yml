@@ -5,12 +5,18 @@ services:
   webhooks:
     build:
       context: ./webhooks
-#      dockerfile: ./webhooks/Dockerfile
     image: webhooks
     ports:
       - "50012:8081"
     networks:
       - webhooks
+      - zoo_net
+
+  event-store:
+    build:
+      context: ./event-store
+    image: event-store
+    networks:
       - zoo_net
 
 networks:

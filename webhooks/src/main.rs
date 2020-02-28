@@ -19,6 +19,7 @@ use std::thread;
 use std::time::Duration;
 use rdkafka::config::ClientConfig;
 use rdkafka::producer::{BaseProducer, BaseRecord};
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 /****************************************************************
 * Data strcutures used
@@ -64,18 +65,6 @@ struct SMSData {
 // Body of the response when the msg processed successfully
 const OK_STATUS: &str = "{ \"status\" : \"Ok\" }";
 
-// Struct to hold the webstate that is passed to every responder
-//#[derive(Debug)]
-struct WebStateForKafka {
-    producer: BaseProducer,
-}
-
-
-// struct Foo<'a> {
-//     x: &'a i32,
-// }
-
-
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
@@ -93,40 +82,19 @@ async fn main() -> std::io::Result<()> {
         .filter(None, LevelFilter::Info)
         .init();
 
-    // let producer: BaseProducer = ClientConfig::new()
-    //     .set("bootstrap.servers", "kafka1:19092,kafka2:19092,kafka3:19092")
-    //     .create()
-    //     .expect("Producer creation error");
+    // Use a channel for the web responders to communicate with the Kafka polling and sending thread. This
+    // prevents the issue with trying to share a Kafka Producer amongst various threads.
+    let (tx, rx): (Sender<Event>, Receiver<Event>) = channel();
 
-    // TODO Use a THreadedProducer but it was throwing type error that could not resolve/understand
-    let producer: BaseProducer = ClientConfig::new()
-        .set("bootstrap.servers", "kafka1:19092,kafka2:19092,kafka3:19092")
-        .create()
-        .expect("Producer creation error");
-
-    // Create the webstate to hold the Kafka producer so it can be used by the poll thread and
-    // all of the actix-web responders
-    let webstate = web::Data::new(WebStateForKafka {producer: producer.clone()});
-
-    // Kick off a thread
-    // thread::spawn(|| {
-    //     let mut i = 0;
-    //     loop {
-    //         println!("hi number {} from the spawned thread!", i);
-    //         i += 1;
-    //         thread::sleep(Duration::from_millis(10000));
-    //     }
-    // });
-    // Kick off a thread
-    thread::spawn(|| {
-//        simple()
-        kafka_poll(producer)
+    // Kick off a thread for the Kafka polling and sending of events
+    thread::spawn(move|| {
+        kafka_poll(rx)
     });
 
-    // Start the HTTP Server and register all of the endpoints
+    // Start the HTTP Server and register all of the endpoints then wait for calls
     HttpServer::new(move || {
         App::new()
-            .data(webstate.clone())
+            .data(tx.clone())
             .service(sms_hook)
             .service(email_hook)
             .service(whatsapp_hook)
@@ -138,17 +106,45 @@ async fn main() -> std::io::Result<()> {
 
 
 //************************************************************************
-fn kafka_poll(producer: BaseProducer) {
+fn kafka_poll(receiver: Receiver<Event>) {
+
+    // TODO handle the error correctly and decide what to do
+    let producer: BaseProducer = ClientConfig::new()
+        .set("bootstrap.servers", "kafka1:19092,kafka2:19092,kafka3:19092")
+        .create()
+        .expect("Producer creation error");
+
+
     // Poll Kafka to ensure all the asynchronous delivery events are processed
     // Also required for any changes in cluster etc events to be handled correctly
     loop {
         producer.poll(Duration::from_millis(100));
+
+        // Check for events waiting on the channel to be sent via Kafka
+        for event in receiver.try_iter() {
+            println!("event received in kafka_poll is: {:?}", event);
+
+            let payload = serde_json::to_vec(&event).unwrap();
+            let key = String::as_bytes(&event.id);
+
+            // Send the message to the topic
+            // TODO handle the error correctly!
+            producer.send(
+                BaseRecord::to("events")
+                    .payload(&payload)
+                    .key(key),
+                ).expect("Failed to enqueue");
+            
+        }
+
+//        thread::sleep(Duration::from_millis(100));
+
     }
 }
 
 //************************************************************************
 #[post("/csc/webhooks/sms")]
-async fn sms_hook(state: web::Data<WebStateForKafka>, form: web::Form<SMSFormData>) -> Result<HttpResponse> {
+async fn sms_hook(transmitter: web::Data<Sender<Event>>, form: web::Form<SMSFormData>) -> Result<HttpResponse> {
 
     let form = form.into_inner();
     let sms_data = SMSData { 
@@ -164,7 +160,7 @@ async fn sms_hook(state: web::Data<WebStateForKafka>, form: web::Form<SMSFormDat
 
     let json_data = serde_json::to_string(&sms_data).unwrap();
 
-    log_info (&json_data);
+    info!("EVENT-SMS-Received:{}", json_data);
 
     // Create an event to send to the rest of the system, then send it
     let event = Event { 
@@ -174,35 +170,21 @@ async fn sms_hook(state: web::Data<WebStateForKafka>, form: web::Form<SMSFormDat
         event_specific_data: json_data,
     };
 
-    let payload = serde_json::to_vec(&event).unwrap();
-    let key = String::as_bytes(&event.id);
+    debug!("EVENT-SMS-To be sent = {}", serde_json::to_string(&event).unwrap());
 
     // Send the event here
-    state.producer.send(
-        BaseRecord::to("destination_topic")
-            .payload(&payload)
-            .key(key),
-        ).expect("Failed to enqueue");
     // TODO handle the return code properly
-
-
-    info!("EVENT to be sent = {}", serde_json::to_string(&event).unwrap());
+    transmitter.send(event).unwrap();
 
     Ok(HttpResponse::Ok()
         .content_type("text/plain")
         .body(OK_STATUS))
 }
 
-//************************************************************************
-fn log_info (data_to_be_logged: &String) {
-    info!("EVENT-SMS-Received:{}", data_to_be_logged);
-}
-
-
 
 //************************************************************************
 #[post("/csc/webhooks/email")]
-async fn email_hook(body: Bytes) -> Result<HttpResponse, Error> {
+async fn email_hook(transmitter: web::Data<Sender<Event>>, body: Bytes) -> Result<HttpResponse, Error> {
     let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
     match result {
         Ok(v) => { 
@@ -210,8 +192,11 @@ async fn email_hook(body: Bytes) -> Result<HttpResponse, Error> {
 
             let event = create_email_event(v);
 
+            debug!("EVENT-EMAIL-To be sent = {}", serde_json::to_string(&event).unwrap());
+
             // Send the event here
-            info!("EVENT to be sent = {}", serde_json::to_string(&event).unwrap());
+            // TODO handle the return code properly
+            transmitter.send(event).unwrap();
 
             return Ok(HttpResponse::Ok()
                 .content_type("application/json")
@@ -282,7 +267,7 @@ fn create_email_event(v: JsonValue) -> Event {
 
 //************************************************************************
 #[post("/csc/webhooks/whatsapp")]
-async fn whatsapp_hook(body: Bytes) -> Result<HttpResponse, Error> {
+async fn whatsapp_hook(transmitter: web::Data<Sender<Event>>, body: Bytes) -> Result<HttpResponse, Error> {
     let result = json::parse(std::str::from_utf8(&body).unwrap());
     match result {
         Ok(v) => { 
@@ -290,8 +275,11 @@ async fn whatsapp_hook(body: Bytes) -> Result<HttpResponse, Error> {
 
             let event = create_whatsapp_event(v);
 
+            debug!("EVENT-WHATSAPP-To be sent = {}", serde_json::to_string(&event).unwrap());
+
             // Send the event here
-            info!("EVENT to be sent = {}", serde_json::to_string(&event).unwrap());
+            // TODO handle the return code properly
+            transmitter.send(event).unwrap();
 
             return Ok(HttpResponse::Ok()
                 .content_type("application/json")
