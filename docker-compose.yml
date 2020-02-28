@@ -8,6 +8,9 @@ services:
     image: webhooks
     ports:
       - "50012:8081"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS="kafka1:19092,kafka2:19092,kafka3:19092"
+      - KAFKA_TOPIC="events"
     networks:
       - webhooks
       - zoo_net
