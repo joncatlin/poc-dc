@@ -30,10 +30,10 @@ rdkafka = { version = "0.23", features = ["cmake-build"] }
 ```
 
 ### Commands used to install the build env on ubuntu
+These are also used in the Dockerfile to ensure the build tools are available
 ```
-sudo apt install gcc
-sudo apt-get install build-essential
-sudo apt  install cmake
+sudo apt-get install musl-tools build-essential cmake -y
+sudo ln -s /usr/bin/g++ /bin/musl-g++
 ```
 
 ## Installing Diesel for postgres
@@ -44,3 +44,8 @@ sudo apt-get install -y postgresql postgresql-contrib libpq-dev
 
 ### Install Diesel command line
 cargo install diesel_cli --no-default-features --features postgres
+
+# TODO
+1. Webhooks may drop messages or not get called. Look into a way on some time period, 
+querying all of the messages that are outstanding for a period of time. This would 
+close the gap for potentially losing status updates.
