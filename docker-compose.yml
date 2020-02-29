@@ -5,7 +5,7 @@ services:
   webhooks:
     build:
       context: ./webhooks
-    image: webhooks
+    image: localhost:5000/webhooks
     ports:
       - "50012:8081"
     environment:
@@ -18,7 +18,7 @@ services:
   event-store:
     build:
       context: ./event-store
-    image: event-store
+    image: localhost:5000/event-store
     networks:
       - zoo_net
 
