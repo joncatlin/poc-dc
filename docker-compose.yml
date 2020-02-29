@@ -18,15 +18,11 @@ services:
   event-store:
     build:
       context: ./event-store
-<<<<<<< HEAD
     image: localhost:5000/event-store
-=======
-    image: event-store
     environment:
       - KAFKA_BOOTSTRAP_SERVERS="kafka1:19092,kafka2:19092,kafka3:19092"
       - KAFKA_TOPIC="events"
       - KAFKA_GROUP_ID="event_store"
->>>>>>> 277154ddfd2702f1120cb8f8af3bce26a88d2420
     networks:
       - zoo_net
 
