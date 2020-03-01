@@ -4,6 +4,24 @@
 
 This repo investigates the potential aspects of the project so we can gain an understanding of the potential issues and solutions.
 
+## Terminology
+Below are some terms that are used throughout the project.
+| Name | Meaning | 
+| ------------- |-------------|
+| Message | Some correspondence that is going to be sent via a specific channel |
+| Channel | The type of message being sent, such as email, sms, whatsapp |
+| Event | Something that happens to a message, such as it is sent, or it is delivered or it fails |
+
+
+## Components
+Each of the components are stored within a directory of the same name. So webhooks is in a dir called webhooks.
+
+| Component        | Description           | 
+| ------------- |-------------|
+| webhooks      | Receives callbacks from the sending services. For example when an sms is sent via twilio it has a callback so that Twilio calls when there is an update on the status of the sms, such as delivered.|
+| channel_sender | This component sends messages using the various service providers. Currently supported are email, sms and whatsapp. |
+| event_store | This component receives the events detailing what messages have been sent and their current status. |
+
 # Editor
 ## TODO
 Below is a list of the things that need to be investigated to understand what solutions are available.
@@ -11,10 +29,11 @@ Below is a list of the things that need to be investigated to understand what so
 2. What is the ability of the CKEditor or other to work in a predefined page with static boxes laid out for envelope etc configuration. Use the @page html attributes to define the boxes and the use inline HTML editor to specify the layout within each box.
 
 
-# Webhook
+# Webhooks
+## Description
+This component listens on a series of endpoints, one for each of the message types supported. This way it knows what type of channel the event was for.
+
 ## TODO
-2. Dockerize the solution
-3. Put secrets in for the cert etc
 5. Ensure that correct REST principles are implemented
 6. Transform all msgs into a standard format before sending them via Kafka so the responses are normalized
 7. Determine if the JSON response for email and whatsapp contain an array and if they do then parse the array breaking each one into its own msg
@@ -35,6 +54,8 @@ These are also used in the Dockerfile to ensure the build tools are available
 sudo apt-get install musl-tools build-essential cmake -y
 sudo ln -s /usr/bin/g++ /bin/musl-g++
 ```
+### Installing cmake on windows
+Go to the cmnake download page and get the distro suitable for the windows installation. https://cmake.org/download/
 
 ## Installing Diesel for postgres
 
@@ -49,3 +70,38 @@ cargo install diesel_cli --no-default-features --features postgres
 1. Webhooks may drop messages or not get called. Look into a way on some time period, 
 querying all of the messages that are outstanding for a period of time. This would 
 close the gap for potentially losing status updates.
+
+# Datastructures
+## DB Tables
+### Events
+This table holds the transactional data about the messages that have been sent and the results obtained through the webhook responses.
+struct Event {
+    id: String,
+    status: String,
+    datetime_rfc2822: String,
+    event_specific_data: String,
+}
+
+CREATE TABLE Event (
+   message_id       VARCHAR(20) NOT NULL,
+   channel          VARCHAR(15) NOT NULL,
+   status           VARCHAR(10) NOT NULL,
+   timestamp        TIMESTAMP NOT NULL,
+   CONSTRAINT pk_msg_id PRIMARY KEY (message_id, channel)
+);
+
+### Accounts
+This table holds the mapping of the message id that was sent to the account which ultimately gets back to the DPL the account is in.
+struct Account {
+    account_id: String, // The unique account identifier
+    message_id: String,
+    channel: String,
+}
+
+CREATE TABLE Account (
+   message_id       VARCHAR(20) NOT NULL,
+   channel          VARCHAR(15) NOT NULL,
+   account_id       VARCHAR(30) NOT NULL,
+   CONSTRAINT pk_msg_id PRIMARY KEY (message_id, channel),
+   CONSTRAINT uk_account_id UNIQUE (account_id)
+);
