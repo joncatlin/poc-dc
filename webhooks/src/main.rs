@@ -29,8 +29,10 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 // The msg generated to describe the webhook call received
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
-struct Event {
+struct MessageEvent {
+    account_id: String,
     id: String,
+    channel: String,
     status: String,
     datetime_rfc2822: String,
     event_specific_data: String,
@@ -85,7 +87,7 @@ async fn main() -> std::io::Result<()> {
 
     // Use a channel for the web responders to communicate with the Kafka polling and sending thread. This
     // prevents the issue with trying to share a Kafka Producer amongst various threads.
-    let (tx, rx): (Sender<Event>, Receiver<Event>) = channel();
+    let (tx, rx): (Sender<MessageEvent>, Receiver<MessageEvent>) = channel();
 
     // Kick off a thread for the Kafka polling and sending of events
     thread::spawn(move|| {
@@ -107,7 +109,7 @@ async fn main() -> std::io::Result<()> {
 
 
 //************************************************************************
-fn kafka_poll(receiver: Receiver<Event>) {
+fn kafka_poll(receiver: Receiver<MessageEvent>) {
 
     // Get the bootstrap servers and topic from the environment variables
     let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
@@ -159,7 +161,7 @@ fn kafka_poll(receiver: Receiver<Event>) {
 
 //************************************************************************
 #[post("/csc/webhooks/sms")]
-async fn sms_hook(transmitter: web::Data<Sender<Event>>, form: web::Form<SMSFormData>) -> Result<HttpResponse> {
+async fn sms_hook(transmitter: web::Data<Sender<MessageEvent>>, form: web::Form<SMSFormData>) -> Result<HttpResponse> {
 
     let form = form.into_inner();
     let sms_data = SMSData { 
@@ -178,9 +180,11 @@ async fn sms_hook(transmitter: web::Data<Sender<Event>>, form: web::Form<SMSForm
     info!("EVENT-SMS-Received:{}", json_data);
 
     // Create an event to send to the rest of the system, then send it
-    let event = Event { 
-        id: sms_data.message_sid, 
-        status: sms_data.message_status, 
+    let event = MessageEvent {        
+        account_id: "".to_string(),
+        id: sms_data.message_sid,
+        channel: "sms".to_string(),
+        status: sms_data.message_status,
         datetime_rfc2822: Utc::now().to_rfc2822(),
         event_specific_data: json_data,
     };
@@ -199,7 +203,7 @@ async fn sms_hook(transmitter: web::Data<Sender<Event>>, form: web::Form<SMSForm
 
 //************************************************************************
 #[post("/csc/webhooks/email")]
-async fn email_hook(transmitter: web::Data<Sender<Event>>, body: Bytes) -> Result<HttpResponse, Error> {
+async fn email_hook(transmitter: web::Data<Sender<MessageEvent>>, body: Bytes) -> Result<HttpResponse, Error> {
     let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
     match result {
         Ok(v) => { 
@@ -231,7 +235,7 @@ async fn email_hook(transmitter: web::Data<Sender<Event>>, body: Bytes) -> Resul
 
 
 //************************************************************************
-fn create_email_event(v: JsonValue) -> Event {
+fn create_email_event(v: JsonValue) -> MessageEvent {
 
     // Ensure the timestamp is an i64 before converting it to the correct date/time format
     let datetime = match v["timestamp"].as_i64() {
@@ -267,8 +271,10 @@ fn create_email_event(v: JsonValue) -> Event {
     }; 
 
     // Create an event to send to the rest of the system
-    let event = Event { 
-        id: id.to_string(), 
+    let event = MessageEvent { 
+        account_id: "".to_string(), 
+        id: id.to_string(),
+        channel: "email".to_string(), 
         status: status.to_string(), 
         datetime_rfc2822: datetime,
         event_specific_data: v.dump(),
@@ -282,7 +288,7 @@ fn create_email_event(v: JsonValue) -> Event {
 
 //************************************************************************
 #[post("/csc/webhooks/whatsapp")]
-async fn whatsapp_hook(transmitter: web::Data<Sender<Event>>, body: Bytes) -> Result<HttpResponse, Error> {
+async fn whatsapp_hook(transmitter: web::Data<Sender<MessageEvent>>, body: Bytes) -> Result<HttpResponse, Error> {
     let result = json::parse(std::str::from_utf8(&body).unwrap());
     match result {
         Ok(v) => { 
@@ -314,7 +320,7 @@ async fn whatsapp_hook(transmitter: web::Data<Sender<Event>>, body: Bytes) -> Re
 
 
 //************************************************************************
-fn create_whatsapp_event(v: JsonValue) -> Event {
+fn create_whatsapp_event(v: JsonValue) -> MessageEvent {
     // Ensure the timestamp is an i64 before converting it to the correct date/time format
     let datetime = match v["date_updated"].as_str() {
         None => {
@@ -347,8 +353,10 @@ fn create_whatsapp_event(v: JsonValue) -> Event {
     // TODO transform status to normalized status so it is ubiquitos across all event channels
 
     // Create an event to send to the rest of the system
-    let event = Event { 
+    let event = MessageEvent { 
+        account_id: "".to_string(), 
         id: id.to_string(), 
+        channel: "whatsapp".to_string(), 
         status: status.to_string(), 
         datetime_rfc2822: datetime,
         event_specific_data: v.dump(),

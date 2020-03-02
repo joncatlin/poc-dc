@@ -7,14 +7,16 @@ services:
   event-db:
     image: postgres:11-alpine
     environment:
-      POSTGRES_DB: event
+      POSTGRES_DB: events
       POSTGRES_PASSWORD: event_pwd
       POSTGRES_USER: event_user
-    volumes:
-      # Persist content outside of the container
-      - type: bind
-        source: /mnt/swarm-shared/joncatlin-development/shared-volumes/poc-dc/event-db
-        target: /var/lib/postgresql/data
+# No volumes due to permission issues with virtualbox 
+# accessing shared folders on host
+    # volumes:
+    #   # Persist content outside of the container
+    #   - type: bind
+    #     source: /media/shared-volumes/poc-dc/event-db
+    #     target: /var/lib/postgresql/data
     ports:
       - "55432:5432"
     deploy:
@@ -27,10 +29,10 @@ services:
       resources:
         limits:
           cpus: '1'
-          memory: 2048M
+          memory: 1024M
         reservations:
           cpus: '1'
-          memory: 2048M
+          memory: 512M
     networks:
       - event
 

@@ -1,13 +1,22 @@
 #[macro_use]
 extern crate log; 
-extern crate env_logger;
+#[macro_use]
+extern crate diesel;
 
 use std::env;
 use futures::StreamExt;
 use env_logger::Builder;
 use log::LevelFilter;
-use chrono::{Local};
+use chrono::{Local, DateTime, ParseError, NaiveDateTime, Utc};
 use std::io::Write;
+use serde::{Deserialize, Serialize};
+
+//use diesel::prelude::*;
+use diesel::r2d2::{self, ConnectionManager};
+//use self::diesel_demo::*;
+use self::models::*;
+use self::diesel::prelude::*;
+use std::error::Error;
 
 use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig};
@@ -16,6 +25,23 @@ use rdkafka::consumer::{CommitMode, Consumer, ConsumerContext, Rebalance};
 use rdkafka::error::KafkaResult;
 use rdkafka::message::{Headers, Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
+
+// mod actions;
+mod models;
+mod schema;
+
+// TODO figure out how to share this structure across multiple components
+#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
+struct MessageEvent {
+    account_id: String,
+    id: String,
+    channel: String,
+    status: String,
+    datetime_rfc2822: String,
+    event_specific_data: String,
+}
+
 
 // A context can be used to change the behavior of producers and consumers by adding callbacks
 // that will be executed by librdkafka.
@@ -41,10 +67,68 @@ impl ConsumerContext for CustomContext {
 // A type alias with your custom consumer can be created for convenience.
 type LoggingConsumer = StreamConsumer<CustomContext>;
 
+//************************************************************************
+async fn insert_account (msg: &MessageEvent, conn: &PgConnection)  -> Result<(), Box<Error>> {
+    use schema::account::dsl::*;
+//    use schema::account;
+    
+    
+    // Only create an entry in the Account table if the message has an account_id. Only the initial send
+    // message will have the account_id as the status update messages from the channels do not contain one.
+    if !msg.account_id.is_empty() {
+        return Ok(());
+    } else {
+
+        let acc = Account { message_id: msg.id, channel: msg.channel, account_id: msg.account_id };
+
+        diesel::insert_into(account)
+            .values(&acc)
+            .execute(conn)?;
+        
+        return Ok(());
+    }
+}
 
 
+//************************************************************************
+async fn insert_event (msg: &MessageEvent, conn: &PgConnection)  -> Result<(), Box<Error>> {
+
+    use schema::event::dsl::*;
+//    use schema::event;
+
+    match DateTime::parse_from_rfc2822(&msg.datetime_rfc2822) {
+        Err(e) => {
+            error!("ParseError converting received datetime_rfc2822 to DateTime. Received datetime_rfc2822 is: {}", 
+                msg.datetime_rfc2822);
+            e
+        },
+        Ok(dt) => {
+            // TODO there must be a better way than doing all these conversions on a date time            
+//            let naive_dt = dt.naive_utc();
+            let naive_dt = Utc::now().naive_utc();
+
+            // Insert the event into the datastore
+            let ev = Event { 
+                message_id: msg.id, 
+                channel: msg.channel, 
+                event_status: msg.status, 
+                event_timestamp: naive_dt, 
+                event_specific_data: msg.event_specific_data
+            };
+        
+            diesel::insert_into(event)
+                .values(&ev)
+                .execute(conn)?;
+            Ok(())
+        }
+    };
+}
+
+
+//************************************************************************
 async fn consume_and_print() {
     let context = CustomContext;
+    let connection = establish_connection();
 
     // Get the bootstrap servers and topic from the environment variables
     let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
@@ -96,12 +180,20 @@ async fn consume_and_print() {
             Err(e) => warn!("Kafka error: {}", e),
             Ok(m) => {
                 let payload = match m.payload_view::<str>() {
-                    None => "",
-                    Some(Ok(s)) => s,
+                    None => {
+                        warn!("No payload in received message from kafka topic. Ignoring message with contents: {:?}", m);
+                        ""
+                    },
+                    Some(Ok(s)) => {
+                        // Get the JSON object from the payload
+                        let msg: MessageEvent = serde_json::from_str(s).unwrap();
+                        info!("Payload contains MessageEvent: {:?}", msg);
+                        s
+                    },
                     Some(Err(e)) => {
                         warn!("Error while deserializing message payload: {:?}", e);
                         ""
-                    }
+                    },
                 };
                 info!("key: '{:?}', payload: '{}', topic: {}, partition: {}, offset: {}, timestamp: {:?}",
                       m.key(), payload, m.topic(), m.partition(), m.offset(), m.timestamp());
@@ -117,6 +209,8 @@ async fn consume_and_print() {
     }
 }
 
+
+//************************************************************************
 #[tokio::main]
 async fn main() {
 
@@ -142,4 +236,11 @@ async fn main() {
     // let group_id = matches.value_of("group-id").unwrap();
 
     consume_and_print().await
+}
+
+
+//************************************************************************
+fn establish_connection() -> PgConnection {
+    let url = ::std::env::var("DATABASE_URL").unwrap();
+    PgConnection::establish(&url).unwrap()
 }

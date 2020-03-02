@@ -31,7 +31,9 @@ Below is a list of the things that need to be investigated to understand what so
 
 # Webhooks
 ## Description
-This component listens on a series of endpoints, one for each of the message types supported. This way it knows what type of channel the event was for.
+This component listens on a series of endpoints, one for each of the channels supported. This way it knows what type of channel the event was for because the message received may not contain the channel.
+
+Every message received is formated into a standard event and then placed on a Kafka topic for processing by another component in the solution.
 
 ## TODO
 5. Ensure that correct REST principles are implemented
@@ -39,29 +41,32 @@ This component listens on a series of endpoints, one for each of the message typ
 7. Determine if the JSON response for email and whatsapp contain an array and if they do then parse the array breaking each one into its own msg
 8. Need to add unit tests for each webhook to ensure the correct response occurs
 
-## Building
+# Building with rdkafka crate
 Using the crate rdkafka requires a change to the standard build process according to the documentation at: https://crates.io/crates/rdkafka see the Installation section of the documentation. Also refer to the docs at https://docs.rs/rdkafka/0.23.1/rdkafka/.
 
-### Change to Cargo.toml to build rdkafka
-Add the following line to the dependencies section in the cargo.toml file.
+## Change to Cargo.toml to build rdkafka
+Add the following line to the dependencies section in the cargo.toml file. Apparently there is a problem using the standard Rust build mechanisms and it needs to be built using CMake.
 ```
 rdkafka = { version = "0.23", features = ["cmake-build"] }
 ```
 
-### Commands used to install the build env on ubuntu
-These are also used in the Dockerfile to ensure the build tools are available
+## Commands used to install the build env on ubuntu
+The Dockerfile should install several dependencies for building rdkafka. These installed using the commands below, which are part of the Dockerfile.
 ```
 sudo apt-get install musl-tools build-essential cmake -y
 sudo ln -s /usr/bin/g++ /bin/musl-g++
 ```
-### Installing cmake on windows
+## Installing cmake on windows
 Go to the cmnake download page and get the distro suitable for the windows installation. https://cmake.org/download/
 
-## Installing Diesel for postgres
-
-### Install Postgres
+# Building with Diesel crate when using postgres database
+There are several dependencies when using Diesel for Postgres. The command below installs the dependencies on the operating system. These must be installed prior to building the docker images
+```
 sudo apt-get update
 sudo apt-get install -y postgresql postgresql-contrib libpq-dev
+```
+
+## Installing Diesel for postgres
 
 ### Install Diesel command line
 cargo install diesel_cli --no-default-features --features postgres
