@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 
 use crate::schema::{event, account};
 
@@ -16,7 +16,7 @@ pub struct Event {
     pub message_id: String,
     pub channel: String,
     pub event_status: String,
-    pub event_timestamp: chrono::NaiveDateTime,
+    pub event_timestamp: String,
     pub event_specific_data: String,
 }
 

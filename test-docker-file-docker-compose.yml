@@ -1,0 +1,14 @@
+version: '3.7'
+
+services:
+
+  test:
+    build:
+      context: ./test-docker-file
+    image: localhost:5000/test-docker-file
+    networks:
+      - kafka
+
+networks:
+  kafka:
+    external: true

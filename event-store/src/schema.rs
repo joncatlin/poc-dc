@@ -11,7 +11,7 @@ table! {
         message_id -> Varchar,
         channel -> Varchar,
         event_status -> Varchar,
-        event_timestamp -> Timestamp,
+        event_timestamp -> Varchar,
         event_specific_data -> Nullable<Text>,
     }
 }

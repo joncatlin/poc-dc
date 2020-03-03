@@ -36,6 +36,7 @@ This component listens on a series of endpoints, one for each of the channels su
 Every message received is formated into a standard event and then placed on a Kafka topic for processing by another component in the solution.
 
 ## TODO
+1. Figure out how to share the common MessageEvent structure beween all of the three collaborating containers
 5. Ensure that correct REST principles are implemented
 6. Transform all msgs into a standard format before sending them via Kafka so the responses are normalized
 7. Determine if the JSON response for email and whatsapp contain an array and if they do then parse the array breaking each one into its own msg

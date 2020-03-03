@@ -69,6 +69,7 @@ struct SMSData {
 const OK_STATUS: &str = "{ \"status\" : \"Ok\" }";
 
 
+//************************************************************************
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
 
@@ -128,11 +129,35 @@ fn kafka_poll(receiver: Receiver<MessageEvent>) {
         }
     };
 
+    let bootstrap_servers = "kafka1:19092,kafka2:19092,kafka3:19092";
+    let topic = "events";
+
     // TODO handle the error correctly and decide what to do
     let producer: BaseProducer = ClientConfig::new()
-        .set("bootstrap.servers", &*bootstrap_servers)
+        .set("bootstrap.servers", bootstrap_servers)
+        .set("message.timeout.ms", "5000")
+        // .set("bootstrap.servers", &*bootstrap_servers)
+        // .set("acks", "1")
+        // .set("retries", "3")
         .create()
         .expect("Producer creation error");
+
+        // ********THIS CODE WORKS FROM SIMPLE-PRODUCR **************
+        // let producer: FutureProducer = ClientConfig::new()
+        // .set("bootstrap.servers", brokers)
+        // .set("message.timeout.ms", "5000")
+        // .create()
+        // .expect("Producer creation error");
+
+
+
+
+
+
+
+
+
+
 
 
     // Poll Kafka to ensure all the asynchronous delivery events are processed
@@ -149,12 +174,24 @@ fn kafka_poll(receiver: Receiver<MessageEvent>) {
 
             // Send the message to the topic
             // TODO handle the error correctly!
-            producer.send(
-                BaseRecord::to(&*topic)
+            match producer.send(
+                BaseRecord::to(topic)
                     .payload(&payload)
                     .key(key),
-                ).expect("Failed to enqueue");
-            
+                ) {
+                    Ok(_) => {
+                        info!("Successfully sent msg with id: {} to kafka topic {:?}", event.id, topic);
+                    },
+                    Err(e) => {
+                        error!("Failed to send msg content: {:?} due to error: {:?}", event, e);
+                    }
+                };
+                // producer.send(
+                //     BaseRecord::to(&*topic)
+                //         .payload(&payload)
+                //         .key(key),
+                //     ).expect("Failed to enqueue");
+                
         }
     }
 }

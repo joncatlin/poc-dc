@@ -34,7 +34,7 @@ services:
           cpus: '1'
           memory: 512M
     networks:
-      - event
+      - event-db
 
   pgadmin:
     image: dpage/pgadmin4
@@ -47,7 +47,7 @@ services:
     ports:
       - "8082:80"
     networks:
-      - event
+      - event-db
 
 
   # pivotdataservice:
@@ -64,7 +64,7 @@ services:
   #   env_file:
   #     - ./seektable/docker-compose.pivotdataservice.env
   #   networks:
-  #     - event
+  #     - event-db
 
 
   # seektable:
@@ -85,8 +85,9 @@ services:
   #   env_file:
   #     - ./seektable/docker-compose.seektable.env
   #   networks:
-  #     - event
+  #     - event-db
      
 
 networks:
-  event:
+  event-db:
+    external: true

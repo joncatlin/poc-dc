@@ -7,16 +7,13 @@ use std::env;
 use futures::StreamExt;
 use env_logger::Builder;
 use log::LevelFilter;
-use chrono::{Local, DateTime, ParseError, NaiveDateTime, Utc};
+//use chrono::{Local, DateTime, ParseError, NaiveDateTime, Utc};
+use chrono::{Local};
 use std::io::Write;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 
-//use diesel::prelude::*;
-use diesel::r2d2::{self, ConnectionManager};
-//use self::diesel_demo::*;
 use self::models::*;
 use self::diesel::prelude::*;
-use std::error::Error;
 
 use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig};
@@ -26,13 +23,12 @@ use rdkafka::error::KafkaResult;
 use rdkafka::message::{Headers, Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
 
-// mod actions;
 mod models;
 mod schema;
 
 // TODO figure out how to share this structure across multiple components
 #[derive(Debug)]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 struct MessageEvent {
     account_id: String,
     id: String,
@@ -68,67 +64,9 @@ impl ConsumerContext for CustomContext {
 type LoggingConsumer = StreamConsumer<CustomContext>;
 
 //************************************************************************
-async fn insert_account (msg: &MessageEvent, conn: &PgConnection)  -> Result<(), Box<Error>> {
-    use schema::account::dsl::*;
-//    use schema::account;
-    
-    
-    // Only create an entry in the Account table if the message has an account_id. Only the initial send
-    // message will have the account_id as the status update messages from the channels do not contain one.
-    if !msg.account_id.is_empty() {
-        return Ok(());
-    } else {
-
-        let acc = Account { message_id: msg.id, channel: msg.channel, account_id: msg.account_id };
-
-        diesel::insert_into(account)
-            .values(&acc)
-            .execute(conn)?;
-        
-        return Ok(());
-    }
-}
-
-
-//************************************************************************
-async fn insert_event (msg: &MessageEvent, conn: &PgConnection)  -> Result<(), Box<Error>> {
-
-    use schema::event::dsl::*;
-//    use schema::event;
-
-    match DateTime::parse_from_rfc2822(&msg.datetime_rfc2822) {
-        Err(e) => {
-            error!("ParseError converting received datetime_rfc2822 to DateTime. Received datetime_rfc2822 is: {}", 
-                msg.datetime_rfc2822);
-            e
-        },
-        Ok(dt) => {
-            // TODO there must be a better way than doing all these conversions on a date time            
-//            let naive_dt = dt.naive_utc();
-            let naive_dt = Utc::now().naive_utc();
-
-            // Insert the event into the datastore
-            let ev = Event { 
-                message_id: msg.id, 
-                channel: msg.channel, 
-                event_status: msg.status, 
-                event_timestamp: naive_dt, 
-                event_specific_data: msg.event_specific_data
-            };
-        
-            diesel::insert_into(event)
-                .values(&ev)
-                .execute(conn)?;
-            Ok(())
-        }
-    };
-}
-
-
-//************************************************************************
 async fn consume_and_print() {
     let context = CustomContext;
-    let connection = establish_connection();
+    let conn = establish_connection();
 
     // Get the bootstrap servers and topic from the environment variables
     let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
@@ -188,6 +126,11 @@ async fn consume_and_print() {
                         // Get the JSON object from the payload
                         let msg: MessageEvent = serde_json::from_str(s).unwrap();
                         info!("Payload contains MessageEvent: {:?}", msg);
+
+                        // Insert the event into the event store
+                        // TODO properly handle any of the errors that could occur
+                        insert_account (&msg, &conn);
+                        insert_event (&msg, &conn);
                         s
                     },
                     Some(Err(e)) => {
@@ -244,3 +187,75 @@ fn establish_connection() -> PgConnection {
     let url = ::std::env::var("DATABASE_URL").unwrap();
     PgConnection::establish(&url).unwrap()
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//************************************************************************
+fn insert_account (msg: &MessageEvent, conn: &PgConnection) -> Result<(), diesel::result::Error> {
+        use schema::account::dsl::*;
+    
+    // Only create an entry in the Account table if the message has an account_id. Only the initial send
+    // message will have the account_id as the status update messages from the channels do not contain one.
+    if !msg.account_id.is_empty() {
+        return Ok(());
+    } else {
+
+        let acc = Account { message_id: msg.id.to_owned(), channel: msg.channel.to_owned(), account_id: msg.account_id.to_owned() };
+
+        diesel::insert_into(account)
+            .values(&acc)
+            .execute(conn)?;
+        
+        return Ok(());
+    }
+}
+
+
+//************************************************************************
+fn insert_event (msg: &MessageEvent, conn: &PgConnection)   -> Result<(), diesel::result::Error> {
+
+    use schema::event::dsl::*;
+
+//     match DateTime::parse_from_rfc2822(&msg.datetime_rfc2822) {
+//         Err(e) => {
+//             error!("ParseError converting received datetime_rfc2822 to DateTime. Received datetime_rfc2822 is: {}", 
+//                 msg.datetime_rfc2822);
+//             e
+//         },
+//         Ok(dt) => {
+//             // TODO there must be a better way than doing all these conversions on a date time            
+// //            let naive_dt = dt.naive_utc();
+//             let naive_dt = Utc::now().naive_utc();
+
+            // Insert the event into the datastore
+            let ev = Event { 
+                message_id: msg.id.to_owned(), 
+                channel: msg.channel.to_owned(), 
+                event_status: msg.status.to_owned(), 
+                event_timestamp: msg.datetime_rfc2822.to_owned(), 
+                event_specific_data: msg.event_specific_data.to_owned()
+            };
+        
+            diesel::insert_into(event)
+                .values(&ev)
+                .execute(conn)?;
+            Ok(())
+    //     }
+    // };
+}
+
+

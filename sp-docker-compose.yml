@@ -1,0 +1,14 @@
+version: '3.7'
+
+services:
+
+  sp:
+    build:
+      context: ./simple-producer
+    image: localhost:5000/webhooks
+    networks:
+      - kafka
+
+networks:
+  kafka:
+    external: true

@@ -4,13 +4,17 @@
 
 FROM rust:latest as cargo-build
 
+RUN apt-get update
+
 # Install the tools needed to compile the rdkafka crate as the standard build 
 # mechanism does not work. See installation instructions at https://crates.io/crates/rdkafka
 RUN apt-get update && apt-get install musl-tools build-essential cmake -y && ln -s /usr/bin/g++ /bin/musl-g++
 
+#RUN apt-get install musl-tools -y
+
 RUN rustup target add x86_64-unknown-linux-musl
 
-WORKDIR /usr/src/webhooks
+WORKDIR /usr/src/test-docker-file
 
 COPY Cargo.toml Cargo.toml
 
@@ -20,7 +24,7 @@ RUN echo "fn main() {println!(\"if you see this, the build broke\")}" > src/main
 
 RUN RUSTFLAGS=-Clinker=musl-gcc cargo build --release --target=x86_64-unknown-linux-musl
 
-RUN rm -f target/x86_64-unknown-linux-musl/release/deps/webhooks*
+RUN rm -f target/x86_64-unknown-linux-musl/release/deps/test-docker-file*
 
 COPY . .
 
@@ -30,18 +34,18 @@ RUN RUSTFLAGS=-Clinker=musl-gcc cargo build --release --target=x86_64-unknown-li
 # Final Stage
 # ------------------------------------------------------------------------------
 
-FROM scratch
+FROM alpine:latest
 
-RUN addgroup -g 1000 docker-user
+RUN addgroup -g 1000 myapp
 
-RUN adduser -D -s /bin/sh -u 1000 -G docker-user docker-user
+RUN adduser -D -s /bin/sh -u 1000 -G myapp myapp
 
-WORKDIR /home/webhooks/bin/
+WORKDIR /home/test-docker-file/bin/
 
-COPY --from=cargo-build /usr/src/webhooks/target/x86_64-unknown-linux-musl/release/webhooks .
+COPY --from=cargo-build /usr/src/test-docker-file/target/x86_64-unknown-linux-musl/release/test-docker-file .
 
-RUN chown docker-user:docker-user webhooks
+RUN chown myapp:myapp test-docker-file
 
-USER docker-user
+USER myapp
 
-CMD ["./webhooks"]
+CMD ["./test-docker-file"]
