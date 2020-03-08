@@ -2,55 +2,11 @@ FROM rust:1.41
 
 RUN apt update -yqq && apt install -yqq cmake g++
 
-#ADD ./ /actix
-COPY . ./event-store
-
+COPY ./ /event-store
 WORKDIR /event-store
+RUN rm .env && ls -l
 
 RUN cargo clean
 RUN RUSTFLAGS="-C target-cpu=native" cargo build --release
 
-#CMD ./target/release/actix-diesel
 CMD ./target/release/event-store
-
-
-
-
-
-
-
-
-
-# # Dockerfile for creating a statically-linked Rust application using docker's
-# # multi-stage build feature. This also leverages the docker build cache to avoid
-# # re-downloading dependencies if they have not changed.
-# FROM rust:1.41.0 AS build
-# WORKDIR /usr/src
-
-# # Download the target for static linking.
-# RUN rustup target add x86_64-unknown-linux-musl
-
-# # Install the tools needed to compile the rdkafka crate as the standard build 
-# # mechanism does not work. See installation instructions at https://crates.io/crates/rdkafka
-# RUN apt-get update && apt-get install musl-tools build-essential cmake postgresql postgresql-contrib libpq-dev -y && ln -s /usr/bin/g++ /bin/musl-g++
-
-# # Create a dummy project and build the app's dependencies.
-# # If the Cargo.toml or Cargo.lock files have not changed,
-# # we can use the docker build cache and skip these (typically slow) steps.
-
-# RUN USER=root cargo new event-store
-# WORKDIR /usr/src/event-store
-# COPY Cargo.toml Cargo.lock ./
-# RUN cargo build --release
-
-# # Copy the source and build the application.
-
-# COPY src ./src
-# RUN cargo install --target x86_64-unknown-linux-musl --path .
-
-# # Copy the statically-linked binary into a scratch container.
-# FROM ubuntu:18.04
-# RUN apt-get update && apt-get install postgresql postgresql-contrib  libpq-dev -y
-# COPY --from=build /usr/local/cargo/bin/event-store .
-# USER 1000
-# CMD ["./event-store"]

@@ -68,6 +68,8 @@ async fn consume_and_print() {
     let context = CustomContext;
     let conn = establish_connection();
 
+    info!("In consume_and_print");
+
     // Get the bootstrap servers and topic from the environment variables
     let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
         Ok(val) => val,
@@ -93,6 +95,8 @@ async fn consume_and_print() {
         }
     };
 
+    info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_TOPIC={}, KAFKA_GROUP_ID={}", bootstrap_servers, topic, group_id);
+    
     let consumer: LoggingConsumer = ClientConfig::new()
         .set("group.id", &*group_id)
         .set("bootstrap.servers", &*bootstrap_servers)
@@ -107,6 +111,7 @@ async fn consume_and_print() {
 
     consumer
         .subscribe(&[&topic])
+//        .subscribe("events")
         .expect("Can't subscribe to specified topics");
 
     // consumer.start() returns a stream. The stream can be used ot chain together expensive steps,
@@ -157,6 +162,8 @@ async fn consume_and_print() {
 #[tokio::main]
 async fn main() {
 
+    println!("Inside main");
+    
     // Initialize the logger for stdout
     Builder::new()
     .format(|buf, record| {
@@ -170,6 +177,7 @@ async fn main() {
     .filter(None, LevelFilter::Info)
     .init();
 
+    info!("Process starting");
 
     // let (version_n, version_s) = get_rdkafka_version();
     // info!("rd_kafka_version: 0x{:08x}, {}", version_n, version_s);
