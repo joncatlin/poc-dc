@@ -1,0 +1,16 @@
+[package]
+name = "makepdf"
+version = "0.1.0"
+authors = ["Jon Catlin <jonc@destini.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reqwest = { version = "0.10", features = ["blocking", "json"] }
+#serde = "1.0.104"
+#serde_json = "1.0.48"
+#serde_derive = "1.0.104"
+log = "0.4.8"
+env_logger = "0.7.1"
+chrono = "0.4.10"
