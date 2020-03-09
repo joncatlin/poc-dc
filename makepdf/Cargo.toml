@@ -14,3 +14,4 @@ reqwest = { version = "0.10", features = ["blocking", "json"] }
 log = "0.4.8"
 env_logger = "0.7.1"
 chrono = "0.4.10"
+uuid = { version = "0.8", features = ["serde", "v4"] }

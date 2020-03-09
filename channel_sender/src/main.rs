@@ -17,6 +17,15 @@ use rdkafka::error::KafkaResult;
 use rdkafka::message::{Headers, Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
 
+use std::io::Write;
+use uuid::Uuid;
+
+use std::io;
+use std::fs::File;
+use std::path::Path;
+
+
+
 // Constants
 static ACCOUNT_ID: &str = "account_id";
 static TOKEN: &str = "token";
@@ -267,4 +276,50 @@ fn get_secret(name: &str) -> String {
         },
     };
     secret
+}
+
+
+
+//************************************************************************
+fn send_pdf() -> Result<(), Box<dyn std::error::Error>> {
+    
+    // Build request to send to the makepdf service
+    info!("Started conversion of pdf");
+    let url = format!("http://docker01:8083/convert/html");
+    
+    let form = reqwest::blocking::multipart::Form::new()
+        .text("x", "not used")
+        .file("files", "./index.html").unwrap();
+
+    let client = reqwest::blocking::Client::new();
+
+    let resp = client
+        .post(&url)
+        .multipart(form)
+        .send();
+    info!("Conversion complete, started file creation");
+
+    match resp {
+        Ok(mut r) => {
+            println!("success!");
+//            let mytext = r.text()?;
+
+
+            let filename = format!("./output/pdf-{}.pdf", Uuid::new_v4());
+            let path = Path::new(&filename);
+        
+            let mut file = std::fs::File::create(&path)?;
+            r.copy_to(&mut file)?;
+        
+            // match save_in_file(mytext) {
+            //     Ok(_) => Ok(()),
+            //     Err(e) => {println!("Error {}", e); Ok(())},
+            // }
+            Ok(())
+        },
+        Err(e) => Err(e),
+    };
+    info!("File creation complete");
+
+    Ok(())
 }
