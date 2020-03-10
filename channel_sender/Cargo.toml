@@ -21,3 +21,4 @@ rdkafka = { version = "0.23", features = ["cmake-build"] }
 tokio = { version = "0.2.0", default-features = false, features = ["macros"] }
 reqwest = { version = "0.10", features = ["blocking", "json"] }
 uuid = { version = "0.8", features = ["serde", "v4"] }
+futures = "0.3.1"

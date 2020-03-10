@@ -7,7 +7,7 @@ use futures::StreamExt;
 use env_logger::Builder;
 use log::LevelFilter;
 use chrono::{Local};
-use std::io::Write;
+use serde::{Deserialize, Serialize};
 
 use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig};
@@ -18,10 +18,13 @@ use rdkafka::message::{Headers, Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
 
 use std::io::Write;
+use std::collections::HashMap;
 use uuid::Uuid;
+use reqwest::Client;
 
 use std::io;
 use std::fs::File;
+use std::fs;
 use std::path::Path;
 
 
@@ -126,7 +129,7 @@ async fn consume_and_print() {
         match message {
             Err(e) => warn!("Kafka error: {}", e),
             Ok(m) => {
-                let payload = match m.payload_view::<DC>() {
+                let payload = match m.payload_view::<str>() {
                     None => "",
                     Some(Ok(s)) => s,
                     Some(Err(e)) => {
