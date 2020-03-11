@@ -113,24 +113,13 @@ async fn main() -> std::io::Result<()> {
 fn kafka_poll(receiver: Receiver<MessageEvent>) {
 
     // Get the bootstrap servers and topic from the environment variables
-    let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
-        Ok(val) => val,
-        Err(_e) => {
-            error!("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
-            "unconfigured_kafka_bootstrap_servers".to_string()
-        },
-    };
+    let bootstrap_servers_env = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
+    let bootstrap_servers: &str = &*bootstrap_servers_env;
 
-    let topic = match env::var("KAFKA_TOPIC") {
-        Ok(val) => val,
-        Err(_e) => {
-            error!("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
-            "unconfigured_kafka_topic".to_string()
-        }
-    };
+    let topic_env = env::var("KAFKA_TOPIC").expect("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
+    let topic: &str = &*topic_env;
 
-    let bootstrap_servers = "kafka1:19092,kafka2:19092,kafka3:19092";
-    let topic = "events";
+    info!("Configured boot_strap_servers={} and topic={}", bootstrap_servers, topic);
 
     // TODO handle the error correctly and decide what to do
     let producer: BaseProducer = ClientConfig::new()

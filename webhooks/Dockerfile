@@ -30,18 +30,20 @@ RUN RUSTFLAGS=-Clinker=musl-gcc cargo build --release --target=x86_64-unknown-li
 # Final Stage
 # ------------------------------------------------------------------------------
 
-FROM scratch
+FROM alpine
 
-RUN addgroup -g 1000 docker-user
+# Problem with connecting in Kafka. Suspect user does not have enough provs. 
+# Commenting out in the short term.
+# RUN addgroup -g 1000 docker-user
 
-RUN adduser -D -s /bin/sh -u 1000 -G docker-user docker-user
+# RUN adduser -D -s /bin/sh -u 1000 -G docker-user docker-user
 
 WORKDIR /home/webhooks/bin/
 
 COPY --from=cargo-build /usr/src/webhooks/target/x86_64-unknown-linux-musl/release/webhooks .
 
-RUN chown docker-user:docker-user webhooks
+# RUN chown docker-user:docker-user webhooks
 
-USER docker-user
+# USER docker-user
 
 CMD ["./webhooks"]

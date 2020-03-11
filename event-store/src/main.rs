@@ -71,29 +71,12 @@ async fn consume_and_print() {
     info!("In consume_and_print");
 
     // Get the bootstrap servers and topic from the environment variables
-    let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
-        Ok(val) => val,
-        Err(_e) => {
-            error!("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
-            "unconfigured_kafka_bootstrap_servers".to_string()
-        }
-    };
+    let bootstrap_servers = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
 
-    let topic = match env::var("KAFKA_TOPIC") {
-        Ok(val) => val,
-        Err(_e) => {
-            error!("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
-            "unconfigured_kafka_topic".to_string()
-        }
-    };
+    let topic = env::var("KAFKA_TOPIC").expect("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
+    let topics = [&*topic];
 
-    let group_id = match env::var("KAFKA_GROUP_ID") {
-        Ok(val) => val,
-        Err(_e) => {
-            error!("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
-            "unconfigured_kafka_group_id".to_string()
-        }
-    };
+    let group_id = env::var("KAFKA_GROUP_ID").expect("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
 
     info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_TOPIC={}, KAFKA_GROUP_ID={}", bootstrap_servers, topic, group_id);
     
@@ -110,9 +93,11 @@ async fn consume_and_print() {
         .expect("Consumer creation failed");
 
     consumer
-        .subscribe(&[&topic])
-//        .subscribe("events")
+        .subscribe(&topics.to_vec())
         .expect("Can't subscribe to specified topics");
+
+
+    info!("Starting kafka consumer");
 
     // consumer.start() returns a stream. The stream can be used ot chain together expensive steps,
     // such as complex computations on a thread pool or asynchronous IO.
@@ -134,8 +119,8 @@ async fn consume_and_print() {
 
                         // Insert the event into the event store
                         // TODO properly handle any of the errors that could occur
-                        insert_account (&msg, &conn);
-                        insert_event (&msg, &conn);
+                        insert_account (&msg, &conn).expect("Insert account failed");
+                        insert_event (&msg, &conn).expect("Insert event failedd");
                         s
                     },
                     Some(Err(e)) => {
@@ -214,11 +199,11 @@ fn establish_connection() -> PgConnection {
 
 //************************************************************************
 fn insert_account (msg: &MessageEvent, conn: &PgConnection) -> Result<(), diesel::result::Error> {
-        use schema::account::dsl::*;
+    use schema::account::dsl::*;
     
     // Only create an entry in the Account table if the message has an account_id. Only the initial send
     // message will have the account_id as the status update messages from the channels do not contain one.
-    if !msg.account_id.is_empty() {
+    if msg.account_id.is_empty() {
         return Ok(());
     } else {
 
