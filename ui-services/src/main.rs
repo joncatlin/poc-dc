@@ -1,28 +1,20 @@
-//! Actix web Diesel integration example
-//!
-//! Diesel does not support tokio, so we have to run it in separate threads using the web::block
-//! function which offloads blocking code (like Diesel's) in order to not block the server's thread.
-
 #[macro_use]
 extern crate diesel;
 
 use actix_web::{get, middleware, post, web, App, Error, HttpResponse, HttpServer};
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
-use uuid::Uuid;
+//use uuid::Uuid;
 
 mod models;
-mod actions;
+mod category_actions;
+mod language_actions;
+mod channel_actions;
+mod corr_actions;
 mod schema;
 
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
-
-
-
-
-
-
 
 
 /// Get a list of all the categories that have been defined.
@@ -34,7 +26,7 @@ async fn get_categories(
     let conn = pool.get().expect("couldn't get db connection from pool");
 
     // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || actions::find_categories(&conn))
+    let results = web::block(move || category_actions::find_categories(&conn))
         .await
         .map_err(|e| {
             eprintln!("{}", e);
@@ -54,7 +46,133 @@ async fn add_categories(
     let conn = pool.get().expect("couldn't get db connection from pool");
 
     // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || actions::insert_new_categories(&cats, &conn))
+    let results = web::block(move || category_actions::insert_new_categories(&cats, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+
+/// Get a list of all the channels that have been defined.
+#[get("/ui-services/v1/channels")]
+async fn get_channels(
+    pool: web::Data<DbPool>,
+) -> Result<HttpResponse, Error> {
+
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || channel_actions::find_channels(&conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+/// Create channels given an array of channels
+#[post("/ui-services/v1/channels")]
+async fn add_channels(
+    pool: web::Data<DbPool>,
+    cats: web::Json<Vec<models::NewChannel>>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || channel_actions::insert_new_channels(&cats, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+
+
+
+/// Get a list of all the languages that have been defined.
+#[get("/ui-services/v1/languages")]
+async fn get_languages(
+    pool: web::Data<DbPool>,
+) -> Result<HttpResponse, Error> {
+
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || language_actions::find_languages(&conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+/// Create languages given an array of languages
+#[post("/ui-services/v1/languages")]
+async fn add_languages(
+    pool: web::Data<DbPool>,
+    cats: web::Json<Vec<models::NewLanguage>>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || language_actions::insert_new_languages(&cats, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+
+
+/// Get a list of all the correspondences that have been defined.
+#[get("/ui-services/v1/corrs")]
+async fn get_corrs(
+    pool: web::Data<DbPool>,
+) -> Result<HttpResponse, Error> {
+
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || corr_actions::find_corrs(&conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+/// Create correspondences given an array of corrs
+#[post("/ui-services/v1/corrs")]
+async fn add_corrs(
+    pool: web::Data<DbPool>,
+    cats: web::Json<Vec<models::NewCorr>>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || corr_actions::insert_new_corrs(&cats, &conn))
         .await
         .map_err(|e| {
             eprintln!("{}", e);
@@ -80,51 +198,9 @@ async fn add_categories(
 
 
 
-/// Finds user by UID.
-#[get("/user/{user_id}")]
-async fn get_user(
-    pool: web::Data<DbPool>,
-    user_uid: web::Path<Uuid>,
-) -> Result<HttpResponse, Error> {
-    let user_uid = user_uid.into_inner();
-    let conn = pool.get().expect("couldn't get db connection from pool");
 
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let user = web::block(move || actions::find_user_by_uid(user_uid, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
 
-    if let Some(user) = user {
-        Ok(HttpResponse::Ok().json(user))
-    } else {
-        let res = HttpResponse::NotFound()
-            .body(format!("No user found with uid: {}", user_uid));
-        Ok(res)
-    }
-}
-
-/// Inserts new user with name defined in form.
-#[post("/user")]
-async fn add_user(
-    pool: web::Data<DbPool>,
-    form: web::Json<models::NewUser>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let user = web::block(move || actions::insert_new_user(&form.name, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(user))
-}
-
+//***********************************************************************************
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_web=info,diesel=debug");
@@ -148,10 +224,14 @@ async fn main() -> std::io::Result<()> {
             // set up DB pool to be used with web::Data<Pool> extractor
             .data(pool.clone())
             .wrap(middleware::Logger::default())
-            .service(get_user)
-            .service(add_user)
             .service(get_categories)
             .service(add_categories)
+            .service(get_channels)
+            .service(add_channels)
+            .service(get_languages)
+            .service(add_languages)
+            .service(get_corrs)
+            .service(add_corrs)
     })
     .bind(&bind)?
     .run()
