@@ -1,6 +1,9 @@
 -- Your SQL goes here
 CREATE TABLE channels (
-  id SERIAL PRIMARY KEY,
-  channel_name VARCHAR NOT NULL,
-  CONSTRAINT uk_channel_name UNIQUE (channel_name)
+  channel_id    SERIAL,
+  channel_name  VARCHAR NOT NULL,
+  PRIMARY KEY (channel_id),
+  UNIQUE (channel_name)
 )
+
+

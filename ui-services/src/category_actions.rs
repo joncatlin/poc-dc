@@ -11,7 +11,7 @@ pub fn find_categories (
     use crate::schema::categories::dsl::*;
 
     let results = categories
-        .limit(100)
+        .limit(1000)
         .load::<models::Category>(conn)
         .expect("Error loading posts");
 

@@ -11,7 +11,8 @@ services:
     networks:
       - event-db
     ports:
-      - "8085:8080"
+      - "50012:8080"
+#      - "8085:8080"
 
 networks:
   event-db:
