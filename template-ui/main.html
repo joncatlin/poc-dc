@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>HTML Iframes</title>
+    </head>
+
+    
+    <body>
+        <style>
+            #wrapper { width: 1000px; height: 750px; padding: 0; overflow: hidden; }
+            #scaled-frame { width: 1000px; height: 2000px; border: 0px; }
+            #scaled-frame {
+                zoom: 0.71;
+                -moz-transform: scale(0.5);
+                -moz-transform-origin: 0 0;
+                -o-transform: scale(0.5);
+                -o-transform-origin: 0 0;
+                -webkit-transform: scale(0.5);
+                -webkit-transform-origin: 0 0;
+            }
+            
+            @media screen and (-webkit-min-device-pixel-ratio:0) {
+             #scaled-frame  { zoom: 1;  }
+            }
+        </style>
+            
+        <div>
+            <p>A quick test of using the iframe to show the template editor inside</p>
+        </div>
+        <div id="wrapper"><iframe id="scaled-frame" src="./inline-editor.html"></iframe></div>
+        
+        <!-- <iframe src = "./inline-editor.html" width = "555" height = "200" style="-webkit-transform:scale(0.5);-moz-transform-scale(0.5);">
+            Sorry your browser does not support inline frames.
+        </iframe> -->
+        
+        <p>Document content also go here...</p>
+    </body>
+	
+</html>
