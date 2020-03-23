@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install musl-tools build-essential cmake -y && ln 
 
 RUN rustup target add x86_64-unknown-linux-musl
 
-WORKDIR /usr/src/test-docker-file
+WORKDIR /usr/src/test-docker-file2
 
 COPY Cargo.toml Cargo.toml
 
@@ -40,12 +40,12 @@ RUN addgroup -g 1000 myapp
 
 RUN adduser -D -s /bin/sh -u 1000 -G myapp myapp
 
-WORKDIR /home/test-docker-file/bin/
+WORKDIR /home/test-docker-file2/bin/
 
-COPY --from=cargo-build /usr/src/test-docker-file/target/x86_64-unknown-linux-musl/release/test-docker-file .
+COPY --from=cargo-build /usr/src/test-docker-file2/target/x86_64-unknown-linux-musl/release/test-docker-file2 .
 
-RUN chown myapp:myapp test-docker-file
+RUN chown myapp:myapp test-docker-file2
 
 USER myapp
 
-CMD ["./test-docker-file"]
+CMD ["./test-docker-file2"]
