@@ -51,7 +51,11 @@ WORKDIR /home/diesel-example/bin/
 
 COPY --from=cargo-build /usr/src/diesel-example/target/x86_64-unknown-linux-musl/release/diesel-example .
 
+# Copy the environment file for the DB URL
+COPY .env .
+
 RUN chown myapp:myapp diesel-example
+RUN chown myapp:myapp .env
 
 USER myapp
 
