@@ -53,6 +53,7 @@ async fn main() {
     let topic = "events";
     let brokers = "kafka1:19092,kafka2:19092,kafka3:19092";
 
+    println!("hi jon");
     produce(brokers, topic).await;
 
 }
