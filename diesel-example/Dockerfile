@@ -39,6 +39,10 @@ RUN RUSTFLAGS=-Clinker=musl-gcc cargo build --release --target=x86_64-unknown-li
 
 FROM alpine:latest
 
+# Add the postgres driver
+RUN apk update
+RUN apk add libpq
+
 RUN addgroup -g 1000 myapp
 
 RUN adduser -D -s /bin/sh -u 1000 -G myapp myapp
