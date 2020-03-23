@@ -4,8 +4,8 @@ services:
 
   test:
     build:
-      context: ./test-docker-file
-    image: localhost:5000/test-docker-file
+      context: ./test-docker-file2
+    image: localhost:5000/test-docker-file2
     networks:
       - kafka
 
