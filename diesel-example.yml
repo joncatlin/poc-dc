@@ -1,0 +1,14 @@
+version: '3.7'
+
+services:
+
+  test:
+    build:
+      context: ./diesel-example
+    image: localhost:5000/diesel-example
+    networks:
+      - event-db
+
+networks:
+  event-db:
+    external: true
