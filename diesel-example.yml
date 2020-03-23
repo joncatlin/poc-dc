@@ -6,6 +6,8 @@ services:
     build:
       context: ./diesel-example
     image: localhost:5000/diesel-example
+    ports:
+      - "8086:8080"
     networks:
       - event-db
 

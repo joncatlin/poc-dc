@@ -43,12 +43,15 @@ FROM alpine:latest
 RUN apk update
 RUN apk add libpq
 
-RUN addgroup -g 1000 myapp
+EXPOSE 8080
 
+# Create user
+RUN addgroup -g 1000 myapp
 RUN adduser -D -s /bin/sh -u 1000 -G myapp myapp
 
 WORKDIR /home/diesel-example/bin/
 
+# Copy the built executable
 COPY --from=cargo-build /usr/src/diesel-example/target/x86_64-unknown-linux-musl/release/diesel-example .
 
 # Copy the environment file for the DB URL
