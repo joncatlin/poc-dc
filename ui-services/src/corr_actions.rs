@@ -7,12 +7,12 @@ use crate::models;
 /// Find all correspondences
 pub fn find_corrs (
     conn: &PgConnection,
-) -> Result<Vec<models::Language>, diesel::result::Error> {
+) -> Result<Vec<models::Correspondence>, diesel::result::Error> {
     use crate::schema::corrs::dsl::*;
 
     let results = corrs
         .limit(100)
-        .load::<models::Language>(conn)
+        .load::<models::Correspondence>(conn)
         .expect("Error loading posts");
 
     Ok(results)
@@ -21,9 +21,9 @@ pub fn find_corrs (
 
 /// Run query using Diesel to insert a new database row and return the result.
 pub fn insert_new_corrs(
-    cats: &Vec<models::NewCorr>,
+    cats: &Vec<models::NewCorrespondence>,
     conn: &PgConnection,
-) -> Result<Vec<models::Corr>, diesel::result::Error> {
+) -> Result<Vec<models::Correspondence>, diesel::result::Error> {
     use crate::schema::corrs::dsl::*;
 
     let results = diesel::insert_into(corrs)

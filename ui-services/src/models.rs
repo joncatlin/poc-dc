@@ -6,10 +6,12 @@ use crate::schema::languages;
 use crate::schema::templates;
 use crate::schema::corrs;
 use crate::schema::category_mappings;
+use crate::schema::channel_configs;
 
 // Categories
-#[derive(Debug, Clone, Serialize, Queryable, Insertable)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable, AsChangeset)]
 #[table_name="categories"]
+#[primary_key(category_id)]
 pub struct Category {
     pub category_id: i32,
     pub category_name: String,
@@ -22,8 +24,9 @@ pub struct NewCategory {
 }
 
 // Languages
-#[derive(Debug, Clone, Serialize, Queryable, Insertable)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
 #[table_name="languages"]
+#[primary_key(language_id)]
 pub struct Language {
     pub language_id: i32,
     pub language_name: String,
@@ -36,8 +39,9 @@ pub struct NewLanguage {
 }
 
 // Channels
-#[derive(Debug, Clone, Serialize, Queryable, Insertable)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
 #[table_name="channels"]
+#[primary_key(channel_id)]
 pub struct Channel {
     pub channel_id: i32,
     pub channel_name: String,
@@ -52,8 +56,9 @@ pub struct NewChannel {
 
 
 // Correspondences
-#[derive(Debug, Clone, Serialize, Queryable, Insertable, QueryableByName)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
 #[table_name="corrs"]
+#[primary_key(correspondence_id)]
 pub struct Correspondence {
     pub correspondence_id: i32,
     pub correspondence_name: String,
@@ -68,17 +73,18 @@ pub struct NewCorrespondence {
 
 
 // Category Mappings
-#[derive(Debug, Clone, Serialize, Queryable, Insertable)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
 #[table_name="category_mappings"]
+#[primary_key(category_mappings_id, category_id)]
 pub struct CategoryMapping {
     pub category_mappings_id: i32,
     pub category_id: i32,
-    #[diesel(embed)]
-    pub correspondence: Correspondece,
-    pub opt_out: bool,
+    // #[diesel(embed)]
+    // pub correspondence: Correspondence,
+    pub opt_out: i32,
     pub retention_period: i32,
-    #[diesel(embed)]
-    pub channel_config: ChannelConfig,
+    // #[diesel(embed)]
+    // pub channel_config: ChannelConfig,
 }
 
 
@@ -87,14 +93,15 @@ pub struct CategoryMapping {
 pub struct NewCategoryMapping {
     pub category_id: i32,
     pub correspondence_id: i32,
-    pub opt_out: bool,
+    pub opt_out: i32,
     pub retention_period: i32,
 }
 
 
 // Templates
-#[derive(Debug, Clone, Serialize, Queryable, Insertable)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
 #[table_name="templates"]
+#[primary_key(template_id)]
 pub struct Template {
     pub template_id: i32,
     pub template_name: String,
@@ -112,13 +119,14 @@ pub struct NewTemplate {
 
 
 // Template List which includes the language name from the languages table
-#[derive(Debug, Clone, Serialize, QueryableByName)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
 #[table_name="templates"]
+#[primary_key(template_id)]
 pub struct TemplateWithLanguage {
     pub template_id: i32,
     pub template_name: String,
-    #[diesel(embed)]
-    pub language: Language,
+    // #[diesel(embed)]
+    // pub language: Language,
 }
 
 
@@ -133,14 +141,16 @@ pub struct TemplateWithLanguage {
 
 
 // Template List which includes the language name from the languages table
-#[derive(Debug, Clone, Serialize, QueryableByName)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
 #[table_name="channel_configs"]
+#[primary_key(channel_config_id)]
 pub struct ChannelConfig {
     pub channel_config_id: i32,
-    #[diesel(embed)]
-    pub channel: Channel,
-    pub permitted: bool,
-    pub selected: language: Language,
+    // #[diesel(embed)]
+    // pub channel: Channel,
+    pub permitted: i32,
+    // #[diesel(embed)]
+    // pub language: Language,
 }
 
 

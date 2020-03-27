@@ -1,0 +1,108 @@
+# ------------------------------------------------------------------------------
+# Cargo Build Stage
+# ------------------------------------------------------------------------------
+
+FROM rust:latest as cargo-build
+
+RUN apt-get update
+
+# Install the tools needed to compile the rdkafka crate as the standard build 
+# mechanism does not work. See installation instructions at https://crates.io/crates/rdkafka
+
+RUN apt-get update && apt-get install musl-tools build-essential cmake pkg-config libssl-dev -y && ln -s /usr/bin/g++ /bin/musl-g++
+
+# RUN rustup target add x86_64-unknown-linux-musl
+
+WORKDIR /usr/src/channel_sender
+
+COPY Cargo.toml Cargo.toml
+
+RUN mkdir src/
+
+RUN echo "fn main() {println!(\"if you see this, the build broke\")}" > src/main.rs
+
+#RUN RUSTFLAGS=-Clinker=musl-gcc cargo build --release --target=x86_64-unknown-linux-musl
+RUN cargo build --release
+RUN ls -l target
+
+#RUN rm -f target/x86_64-unknown-linux-musl/release/deps/channel_sender*
+RUN rm -f target/release/deps/channel_sender*
+
+COPY . .
+
+#RUN RUSTFLAGS=-Clinker=musl-gcc cargo build --release --target=x86_64-unknown-linux-musl
+RUN cargo build --release
+
+# ------------------------------------------------------------------------------
+# Final Stage
+# ------------------------------------------------------------------------------
+
+FROM alpine:latest
+
+# Create user
+RUN addgroup -g 1000 myapp
+RUN adduser -D -s /bin/sh -u 1000 -G myapp myapp
+
+WORKDIR /home/channel_sender/bin/
+
+# Copy the built executable
+#COPY --from=cargo-build /usr/src/channel_sender/target/x86_64-unknown-linux-musl/release/channel_sender .
+COPY --from=cargo-build /usr/src/channel_sender/target/release/channel_sender .
+
+RUN chown myapp:myapp channel_sender
+
+USER myapp
+
+CMD ["./channel_sender"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # Dockerfile for creating a statically-linked Rust application using docker's
+# # multi-stage build feature. This also leverages the docker build cache to avoid
+# # re-downloading dependencies if they have not changed.
+# FROM rust:1.41.0 AS build
+# WORKDIR /usr/src
+
+# # Download the target for static linking.
+# RUN rustup target add x86_64-unknown-linux-musl
+
+# # Install the tools needed to compile the rdkafka crate as the standard build 
+# # mechanism does not work. See installation instructions at https://crates.io/crates/rdkafka
+# RUN apt-get update && apt-get install musl-tools build-essential cmake -y && ln -s /usr/bin/g++ /bin/musl-g++
+
+# # Create a dummy project and build the app's dependencies.
+# # If the Cargo.toml or Cargo.lock files have not changed,
+# # we can use the docker build cache and skip these (typically slow) steps.
+
+# RUN USER=root cargo new channel_sender
+# WORKDIR /usr/src/channel_sender
+# COPY Cargo.toml Cargo.lock ./
+# RUN cargo build --release
+
+# # Copy the source and build the application.
+
+# COPY src ./src
+# RUN cargo install --target x86_64-unknown-linux-musl --path .
+
+# # Copy the statically-linked binary into a scratch container.
+# FROM scratch
+# COPY --from=build /usr/local/cargo/bin/channel_sender .
+# USER 1000
+# CMD ["./channel_sender"]

@@ -1,6 +1,10 @@
 #[macro_use]
 extern crate log; 
 extern crate env_logger;
+extern crate handlebars;
+extern crate reqwest;
+#[macro_use] 
+extern crate hyper;
 
 use std::env;
 use futures::StreamExt;
@@ -14,40 +18,62 @@ use rdkafka::config::{ClientConfig};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{CommitMode, Consumer, ConsumerContext, Rebalance};
 use rdkafka::error::KafkaResult;
-use rdkafka::message::{Headers, Message};
+use rdkafka::message::{Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
 
 use std::io::Write;
 use std::collections::HashMap;
 use uuid::Uuid;
 use reqwest::Client;
+//use hyper::header::{Headers, Authorization, Bearer};
 
-use std::io;
-use std::fs::File;
+//use std::io;
+//use std::fs::File;
 use std::fs;
 use std::path::Path;
 
-
+mod template;
 
 // Constants
 static ACCOUNT_ID: &str = "account_id";
 static TOKEN: &str = "token";
 static SECRET_PATH: &str = "/run/secrets/";
 
+
+
+// Structure to hold a template id and channel to be used to send the DC through
+#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
+struct TemplateChannel {
+    template_id: i32,
+    channel: String,
+}
+
 // Structuer of the expected payload for a digital communication event received via Kafka
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
 struct DC {
     id: String,
+
+    // Templates and channels to be used for the DC.
+    template_channels: Vec<TemplateChannel>,
+
+    // List of accounts to send the digital communication to
+    accounts: Vec<String>,
+}
+
+// TODO figure out how to share this structure across multiple components
+#[derive(Debug)]
+#[derive(Deserialize)]
+struct MessageEvent {
+    account_id: String,
+    id: String,
+    channel: String,
     status: String,
     datetime_rfc2822: String,
     event_specific_data: String,
-
-    // Template id - the handle to the template to be used
-    // Temaple data - the data required by the template
-    // Channel list - a list of channels to send it the template down
-
 }
+
 
 
 
@@ -77,33 +103,18 @@ type LoggingConsumer = StreamConsumer<CustomContext>;
 
 
 //************************************************************************
-async fn consume_and_print() {
+async fn consume() {
     let context = CustomContext;
 
     // Get the bootstrap servers and topic from the environment variables
-    let bootstrap_servers = match env::var("KAFKA_BOOTSTRAP_SERVERS") {
-        Ok(val) => val,
-        Err(_e) => {
-            error!("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
-            "unconfigured_kafka_bootstrap_servers".to_string()
-        }
-    };
+    let bootstrap_servers = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
 
-    let topic = match env::var("KAFKA_TOPIC") {
-        Ok(val) => val,
-        Err(_e) => {
-            error!("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
-            "unconfigured_kafka_topic".to_string()
-        }
-    };
+    let topic = env::var("KAFKA_TOPIC").expect("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
+    let topics = [&*topic];
 
-    let group_id = match env::var("KAFKA_GROUP_ID") {
-        Ok(val) => val,
-        Err(_e) => {
-            error!("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
-            "unconfigured_kafka_group_id".to_string()
-        }
-    };
+    let group_id = env::var("KAFKA_GROUP_ID").expect("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
+
+    info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_TOPIC={}, KAFKA_GROUP_ID={}", bootstrap_servers, topic, group_id);
 
     let consumer: LoggingConsumer = ClientConfig::new()
         .set("group.id", &*group_id)
@@ -111,15 +122,14 @@ async fn consume_and_print() {
         .set("enable.partition.eof", "false")
         .set("session.timeout.ms", "6000")
         .set("enable.auto.commit", "true")
-        //.set("statistics.interval.ms", "30000")
-        //.set("auto.offset.reset", "smallest")
-//        .set_log_level(RDKafkaLogLevel::Debug)
         .create_with_context(context)
         .expect("Consumer creation failed");
 
     consumer
-        .subscribe(&[&topic])
+        .subscribe(&topics.to_vec())
         .expect("Can't subscribe to specified topics");
+
+    info!("Starting kafka consumer");
 
     // consumer.start() returns a stream. The stream can be used ot chain together expensive steps,
     // such as complex computations on a thread pool or asynchronous IO.
@@ -130,29 +140,24 @@ async fn consume_and_print() {
             Err(e) => warn!("Kafka error: {}", e),
             Ok(m) => {
                 let payload = match m.payload_view::<str>() {
-                    None => "",
-                    Some(Ok(s)) => s,
+                    None => {
+                        warn!("No payload in received message from kafka topic. Ignoring message with contents: {:?}", m);
+                        ""
+                    },
+                    Some(Ok(s)) => {
+                        // Get the JSON object from the payload
+                        let msg: DC = serde_json::from_str(s).unwrap();
+                        info!("Payload contains DC: {:?}", msg);
+
+                        // Process the digital communications request
+                        process_request(msg);
+                        s
+                    },
                     Some(Err(e)) => {
                         warn!("Error while deserializing message payload: {:?}", e);
                         ""
-                    }
+                    },
                 };
-                // let payload = match m.payload_view::<str>() {
-                //     None => "",
-                //     Some(Ok(s)) => s,
-                //     Some(Err(e)) => {
-                //         warn!("Error while deserializing message payload: {:?}", e);
-                //         ""
-                //     }
-                // };
-                info!("key: '{:?}', payload: '{}', topic: {}, partition: {}, offset: {}, timestamp: {:?}",
-                      m.key(), payload, m.topic(), m.partition(), m.offset(), m.timestamp());
-                if let Some(headers) = m.headers() {
-                    for i in 0..headers.count() {
-                        let header = headers.get(i).unwrap();
-                        info!("  Header {:#?}: {:?}", header.0, header.1);
-                    }
-                }
                 consumer.commit_message(&m, CommitMode::Async).unwrap();
             }
         };
@@ -185,12 +190,12 @@ async fn main() {
     // let brokers = matches.value_of("brokers").unwrap();
     // let group_id = matches.value_of("group-id").unwrap();
 
-    consume_and_print().await
+    consume().await
 }
 
 
 //************************************************************************
-async fn send_whatsapp() {
+fn send_whatsapp() -> Result<(), Box<dyn std::error::Error>> {
     
     let account_id = "ACbd9666b3f5427bb33828653997cb357a".to_string();
     let token = "8cd2cb93c2e4bdcef546690b0868e995".to_string();
@@ -203,21 +208,26 @@ async fn send_whatsapp() {
     params.insert("StatusCallback", "http://destini.synology.me:50012/csc/webhooks/whatsapp");
     let url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", account_id);
     let client = Client::new();
-    let res = client
-        .post(&url)
-        .basic_auth(account_id, Some(token))
-        .form(&params)
-        .send()
-        .await
-        .unwrap();
+    async {
 
-    let mytext = res.text().await.unwrap();
-    println!("{}", mytext);
+        let res = client
+            .post(&url)
+            .basic_auth(account_id, Some(token))
+            .form(&params)
+            .send()
+            .await
+            .unwrap();
+
+        let mytext = res.text().await.unwrap();
+        println!("{}", mytext);
+    };
+
+    Ok(())
 }
 
 
 //************************************************************************
-async fn send_sms() {
+fn send_sms() -> Result<(), Box<dyn std::error::Error>> {
     let account_id = "ACbd9666b3f5427bb33828653997cb357a".to_string();
     let token = "8cd2cb93c2e4bdcef546690b0868e995".to_string();
 
@@ -229,42 +239,82 @@ async fn send_sms() {
     params.insert("StatusCallback", "http://destini.synology.me:50012/csc/webhooks/sms");
     let url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", account_id);
     let client = reqwest::Client::new();
-    let res = client
-        .post(&url)
-        .basic_auth(account_id, Some(token))
-        .form(&params)
-        .send()
-        .await
-        .unwrap();
+    async {
 
-    let mytext = res.text().await.unwrap();
-    println!("{}", mytext);
+        let res = client
+            .post(&url)
+            .basic_auth(account_id, Some(token))
+            .form(&params)
+            .send()
+            .await
+            .unwrap();
+
+        let mytext = res.text().await.unwrap();
+        println!("{}", mytext);
+    };
+
+    Ok(())
 }
 
 
 //************************************************************************
-async fn send_email() {
-    let account_id = "ACbd9666b3f5427bb33828653997cb357a".to_string();
-    let token = "8cd2cb93c2e4bdcef546690b0868e995".to_string();
+fn send_email(account_fields: &HashMap<String, String>, email_content: &String, api_key: &String) -> Result<(), Box<dyn std::error::Error>> {
 
-    // Send an SMS
-    let mut params = HashMap::new();
-    params.insert("To", "+14805169974");
-    params.insert("From", "+14804053433");
-    params.insert("Body", "Hello, World! from Rust");
-    params.insert("StatusCallback", "http://destini.synology.me:50012/csc/webhooks/sms");
-    let url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", account_id);
+    info!("Starting to send_email. account_fields: {:?}, email_content: {:?}, api_key: {:?}", account_fields, email_content, api_key);
+
+    // var apiKey = "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";
+    // //            var apiKey = Environment.GetEnvironmentVariable("SENDGRID_APIKEY");
+    //             var client = new SendGridClient(apiKey);
+    //             var from = new EmailAddress("jonc@destini.com", "Jon Catlin");
+    //             var subject = "Testing sending with SendGrid";
+    //             var to = new EmailAddress("jon.catlin@destini.com", "Jon T Catlin");
+    //             var plainTextContent = "This is an easy api to use";
+    //             var htmlContent = "<strong>Just figuring out how to use this api</strong>";
+    //             var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
+    //             var response = await client.SendEmailAsync(msg);
+
+    // Get the fields from the account needed for an email
+    let email_to = account_fields.get(&"email_to".to_string()).unwrap();
+    let email_from = account_fields.get(&"email_from".to_string()).unwrap();
+    let email_subject = account_fields.get(&"email_from".to_string()).unwrap();
+
+    let filled_email_struct = format!(
+        r#"{{"personalizations": [{{"to": [{{"email": "{}"}}],"subject": "{}"}}],"from": {{"email": "{}"}},"content": [{{"type": "text/html","value": "{}"}}]}}"#, 
+        email_to, email_subject, email_from, email_content
+    );
+
+    // let account_id = "ACbd9666b3f5427bb33828653997cb357a".to_string();
+    // let token = "8cd2cb93c2e4bdcef546690b0868e995".to_string();
+
+    // Set up the authorization for the call
+    // let mut headers = Headers::new();
+    // headers.set(
+    //    Authorization(
+    //        Bearer {
+    //            token: api_key.to_owned()
+    //        }
+    //    )
+    // );
+
+    let url = "https://api.sendgrid.com/v3/mail/send HTTP/1.1";
+
     let client = reqwest::Client::new();
-    let res = client
-        .post(&url)
-        .basic_auth(account_id, Some(token))
-        .form(&params)
-        .send()
-        .await
-        .unwrap();
+    async {
 
-    let mytext = res.text().await.unwrap();
-    println!("{}", mytext);
+        let res = client
+            .post(url)
+            .bearer_auth(api_key)
+//            .header(headers)
+            .body(filled_email_struct)
+            .send()
+            .await
+            .unwrap();
+
+        let mytext = res.text().await.unwrap();
+        println!("{}", mytext);
+    };
+
+    Ok(())
 }
 
 
@@ -326,3 +376,103 @@ fn send_pdf() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+
+//************************************************************************
+fn process_request (msg: DC) {
+
+    // For each account and channel template combination, send the communication
+    for template_channel in &msg.template_channels {
+
+        // Get the fields used in the template so that the data can be requested
+        let template_fields: Vec<String> = get_template_fields(template_channel.template_id);
+
+        for account in &msg.accounts {
+            
+            // Get the fields for the account
+            let account_fields = get_account_fields(&account, &template_fields);
+
+            // Combine the template with the fields retrieved for the account
+            let populated_template = "Hi this is a temporary message".to_string();
+
+            // Send the digital communication for the account through the correct channel
+
+            // Send a status message to the event store registering that a DC has occured for that account
+            match &*template_channel.channel {
+                "email" => {
+                    let api_key = "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".to_string();
+                    send_email(&account_fields, &populated_template, &api_key);
+                    info!("");
+                },
+                "sms" => {
+                    send_sms();
+                    info!("");
+                },
+                "pdf" => {
+                    send_pdf();
+                    info!("");
+                },
+                "whatsapp" => {
+                    send_whatsapp();
+                    info!("");
+                },
+                ch => error!("Unknown channel specified in received msg. Channel found is: {}", ch),
+            }
+        }
+    }
+}
+
+
+//************************************************************************
+fn get_template_fields (template_id: i32) -> Vec<String> {
+    vec!()
+}
+
+
+//************************************************************************
+fn get_account_fields (account: &String, template_fields: &Vec<String>) -> HashMap<String, String> {
+
+
+
+
+
+
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Account {
+    days_delinquent: i16,
+    amount_due: f64,
+    account_number: String,
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Contract {
+    id: i16,
+    first_name: String,
+    last_name: String,
+    gender: String,
+    email: String,
+    address1: String,
+    address2: String,
+    address3: String,
+    city: String,
+    state: String,
+    zip: String,
+    client: String,
+    accounts: Vec<Account>,
+    currency: String,
+}
+
+
+fn get_data() -> Vec<UserData> {
+
+    let file_contents = fs::read_to_string("./mock_data.json").expect("error on read string from file");
+
+    let array: Vec<UserData> = serde_json::from_str(&file_contents).expect("");
+
+    array
+}
+
