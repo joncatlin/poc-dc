@@ -6,24 +6,34 @@ services:
     build:
       context: ./channel_sender
     image: localhost:5000/channel_sender
-    secrets:
-      - account_id
-      - token
     networks:
       - kafka
+    volumes:
+      - type: bind
+        source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/channel_sender/templates
+        target: /templates
+        read_only: true
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka1:19092,kafka2:19092,kafka3:19092
       - KAFKA_TOPIC=dc-msgs
       - KAFKA_GROUP_ID=channel-sender
 # Needed to debug stuff
       - RUST_BACKTRACE=full
+      - RUST_LOG=debug
+    secrets:
+      - sms_vendor_account_id
+      - sms_vendor_token
+      - email_vendor_token
+
 networks:
   kafka:
     external: true
 
 
 secrets:
-  account_id:
+  sms_vendor_account_id:
     external: true
-  token:
+  sms_vendor_token:
+    external: true
+  email_vendor_token:
     external: true

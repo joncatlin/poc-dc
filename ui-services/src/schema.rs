@@ -6,7 +6,7 @@ table! {
 }
 
 table! {
-    category_mappings (category_id, correspondence_id) {
+    category_mappings (category_mappings_id) {
         category_mappings_id -> Int4,
         category_id -> Int4,
         correspondence_id -> Int4,
@@ -18,9 +18,9 @@ table! {
 table! {
     channel_configs (channel_config_id) {
         channel_config_id -> Int4,
+        category_mappings_id -> Int4,
         channel_id -> Int4,
         permitted -> Int4,
-        language_id -> Int4,
     }
 }
 
@@ -55,8 +55,8 @@ table! {
 
 joinable!(category_mappings -> categories (category_id));
 joinable!(category_mappings -> corrs (correspondence_id));
+joinable!(channel_configs -> category_mappings (category_mappings_id));
 joinable!(channel_configs -> channels (channel_id));
-joinable!(channel_configs -> languages (language_id));
 joinable!(templates -> languages (language_id));
 
 allow_tables_to_appear_in_same_query!(

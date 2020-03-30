@@ -37,6 +37,10 @@ FROM alpine:latest
 
 EXPOSE 8080
 
+# Create a volume for the templates
+RUN mkdir /templates
+VOLUME ["/templates"]
+
 # Create user
 RUN addgroup -g 1000 myapp
 RUN adduser -D -s /bin/sh -u 1000 -G myapp myapp
@@ -45,10 +49,8 @@ WORKDIR /home/channel_sender/bin/
 
 # Copy the built executable
 COPY --from=cargo-build /usr/src/channel_sender/target/x86_64-unknown-linux-musl/release/channel_sender .
-COPY *.json .
 
 RUN chown myapp:myapp channel_sender
-RUN chown myapp:myapp *.json
 
 USER myapp
 

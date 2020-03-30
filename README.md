@@ -111,3 +111,20 @@ CREATE TABLE Account (
    CONSTRAINT pk_msg_id PRIMARY KEY (message_id, channel),
    CONSTRAINT uk_account_id UNIQUE (account_id)
 );
+
+## Docker Secrets
+The solution uses several docker secrets. These are:
+| Secret Name | Use | 
+| ------------- |-------------|
+|sms_vendor_account_id| This maps to the Twilio Account SID
+|sms_vendor_token| This maps to the Twilio Authtoken
+|email_vendor_token| This maps to the Sendgrid API key
+
+To create the secrets, sign in to a docker swarm manager and use the following command to create each secret:
+```
+printf <secret> | docker secret create <secret name> -
+```
+Once completed check that each secret exists by using the following command:
+```
+docker secret ls
+```

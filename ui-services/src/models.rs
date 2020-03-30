@@ -9,7 +9,7 @@ use crate::schema::category_mappings;
 use crate::schema::channel_configs;
 
 // Categories
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable, AsChangeset)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Insertable, Identifiable, AsChangeset)]
 #[table_name="categories"]
 #[primary_key(category_id)]
 pub struct Category {
@@ -48,6 +48,15 @@ pub struct Channel {
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
+#[table_name="channels"]
+#[primary_key(channel_id)]
+pub struct EmbedChannel {
+    pub channel_id: i32,
+    pub channel_name: String,
+}
+
+
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable)]
 #[table_name="channels"]
 pub struct NewChannel {
@@ -56,7 +65,7 @@ pub struct NewChannel {
 
 
 // Correspondences
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Insertable, Identifiable, AsChangeset)]
 #[table_name="corrs"]
 #[primary_key(correspondence_id)]
 pub struct Correspondence {
@@ -72,15 +81,29 @@ pub struct NewCorrespondence {
 }
 
 
+
+
+
+
+// Correspondences Embedded
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Identifiable)]
+#[table_name="corrs"]
+#[primary_key(correspondence_id)]
+pub struct EmbedCorrespondence {
+    pub correspondence_id: i32,
+    pub correspondence_name: String,
+}
+
+
 // Category Mappings
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
+#[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
 #[table_name="category_mappings"]
-#[primary_key(category_mappings_id, category_id)]
+#[primary_key(category_mappings_id)]
 pub struct CategoryMapping {
     pub category_mappings_id: i32,
     pub category_id: i32,
-    // #[diesel(embed)]
-    // pub correspondence: Correspondence,
+    #[diesel(embed)]
+    pub correspondence: EmbedCorrespondence,
     pub opt_out: i32,
     pub retention_period: i32,
     // #[diesel(embed)]
@@ -96,6 +119,57 @@ pub struct NewCategoryMapping {
     pub opt_out: i32,
     pub retention_period: i32,
 }
+
+
+// -- Your SQL goes here
+// CREATE TABLE category_mappings (
+//     category_mappings_id     SERIAL,
+//     category_id         INTEGER NOT NULL,
+//     correspondence_id   INTEGER NOT NULL,
+//     opt_out             INTEGER NOT NULL,
+//     retention_period    INTEGER NOT NULL,
+//     PRIMARY KEY (category_id, correspondence_id),
+//     FOREIGN KEY (category_id) REFERENCES categories (category_id),
+//     FOREIGN KEY (correspondence_id) REFERENCES corrs (correspondence_id)
+// )
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
+#[table_name="category_mappings"]
+#[primary_key(category_mappings_id)]
+pub struct MappedCategories {
+    pub category_mappings_id: i32,
+    
+    #[diesel(embed)]
+    pub category: Category,
+
+    #[diesel(embed)]
+    pub correspoondence: Correspondence,
+    
+    pub opt_out: i32,
+    pub retention_period: i32,
+
+    #[diesel(embed)]
+    pub channel_config: Vec<ChannelConfig>,
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // Templates
@@ -141,16 +215,14 @@ pub struct TemplateWithLanguage {
 
 
 // Template List which includes the language name from the languages table
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, Identifiable)]
+#[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
 #[table_name="channel_configs"]
 #[primary_key(channel_config_id)]
 pub struct ChannelConfig {
     pub channel_config_id: i32,
-    // #[diesel(embed)]
-    // pub channel: Channel,
+
+    #[diesel(embed)]
+    pub channel: EmbedChannel,
+
     pub permitted: i32,
-    // #[diesel(embed)]
-    // pub language: Language,
 }
-
-

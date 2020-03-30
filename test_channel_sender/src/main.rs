@@ -26,8 +26,10 @@ static SECRET_PATH: &str = "/run/secrets/";
 #[derive(Serialize, Deserialize)]
 struct TemplateChannel {
     template_id: i32,
+    language_id: i32,
     channel: String,
 }
+
 
 
 // Structuer of the expected payload for a digital communication event received via Kafka
@@ -55,9 +57,9 @@ async fn produce() {
 
 
     // Create a DC msg as the payload
-    let tc = TemplateChannel {template_id: 1, channel: "email".to_string()};
+    let tc = TemplateChannel {template_id: 3, language_id: 2, channel: "sms".to_string()};
     let a = vec!("account1".to_string(), "account2".to_string(), "account3".to_string(), "account4".to_string());
-    let dc = DC {id: "this is the id".to_string(), template_channels: vec!(tc), accounts: a};            
+    let dc = DC {id: "this is the id2".to_string(), template_channels: vec!(tc), accounts: a};            
     let dc_string = serde_json::to_string(&dc).unwrap();
 
 
@@ -67,7 +69,8 @@ async fn produce() {
         .create()
         .expect("Producer creation error");
 
-
+    info!("About to send payload: {:?}", dc_string);
+    
     producer.send(
         BaseRecord::to(&*topic)
             .payload(&*dc_string)

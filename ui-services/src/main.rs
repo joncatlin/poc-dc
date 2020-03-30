@@ -29,7 +29,9 @@ mod schema;
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
-
+/*
+************************* CATEGORIES ***********************************************************
+*/
 /// Get a list of all the categories that have been defined.
 #[get("/ui-services/v1/categories")]
 async fn get_categories(
@@ -40,26 +42,6 @@ async fn get_categories(
 
     // use web::block to offload blocking Diesel code without blocking server thread
     let results = web::block(move || category_actions::find_categories(&conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Create categories given an array of categories
-#[post("/ui-services/v1/categories")]
-async fn add_categories(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::NewCategory>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || category_actions::insert_new_categories(&cats, &conn))
         .await
         .map_err(|e| {
             eprintln!("{}", e);
@@ -110,6 +92,74 @@ async fn delete_categories(
 }
 
 
+/*
+************************* CORRESPONDENCES ***********************************************************
+*/
+/// Get a list of all the correspondences that have been defined.
+#[get("/ui-services/v1/correspondences")]
+async fn get_correspondences(
+    pool: web::Data<DbPool>,
+) -> Result<HttpResponse, Error> {
+
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || corr_actions::find_correspondences(&conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+/// Create correspondences given an array of correspondences
+#[put("/ui-services/v1/correspondences")]
+async fn upsert_correspondences(
+    pool: web::Data<DbPool>,
+    cats: web::Json<Vec<models::Correspondence>>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || corr_actions::upsert_new_correspondences(&cats, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+/// Delete a list of correspondences
+#[delete("/ui-services/v1/correspondences")]
+async fn delete_correspondences(
+    pool: web::Data<DbPool>,
+    cats: web::Json<Vec<models::Correspondence>>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || corr_actions::delete_existing_correspondences(&cats, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+//RUBBISH
+
+
+/*
+************************* CHANNELS ***********************************************************
+*/
 /// Get a list of all the channels that have been defined.
 #[get("/ui-services/v1/channels")]
 async fn get_channels(
@@ -131,15 +181,35 @@ async fn get_channels(
 
 
 /// Create channels given an array of channels
-#[post("/ui-services/v1/channels")]
-async fn add_channels(
+#[put("/ui-services/v1/channels")]
+async fn upsert_channels(
     pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::NewChannel>>,
+    cats: web::Json<Vec<models::Channel>>,
 ) -> Result<HttpResponse, Error> {
     let conn = pool.get().expect("couldn't get db connection from pool");
 
     // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || channel_actions::insert_new_channels(&cats, &conn))
+    let results = web::block(move || channel_actions::upsert_new_channels(&cats, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+/// Delete a list of channels
+#[delete("/ui-services/v1/channels")]
+async fn delete_channels(
+    pool: web::Data<DbPool>,
+    cats: web::Json<Vec<models::Channel>>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || channel_actions::delete_existing_channels(&cats, &conn))
         .await
         .map_err(|e| {
             eprintln!("{}", e);
@@ -151,8 +221,9 @@ async fn add_channels(
 
 
 
-
-
+/*
+************************* LANGUAGES ***********************************************************
+*/
 /// Get a list of all the languages that have been defined.
 #[get("/ui-services/v1/languages")]
 async fn get_languages(
@@ -174,15 +245,81 @@ async fn get_languages(
 
 
 /// Create languages given an array of languages
-#[post("/ui-services/v1/languages")]
-async fn add_languages(
+#[put("/ui-services/v1/languages")]
+async fn upsert_languages(
     pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::NewLanguage>>,
+    cats: web::Json<Vec<models::Language>>,
 ) -> Result<HttpResponse, Error> {
     let conn = pool.get().expect("couldn't get db connection from pool");
 
     // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || language_actions::insert_new_languages(&cats, &conn))
+    let results = web::block(move || language_actions::upsert_new_languages(&cats, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+// Rubbish
+
+/// Delete a list of languages
+#[delete("/ui-services/v1/languages")]
+async fn delete_languages(
+    pool: web::Data<DbPool>,
+    cats: web::Json<Vec<models::Language>>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || language_actions::delete_existing_languages(&cats, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+/*
+************************* CATEGORY to CORRESPONDENCE MAPPING ***********************************************************
+*/
+/// Get a list of all the correspondences that have been mapped to a category.
+#[get("/ui-services/v1/category-correspondence-mappings/mapped/{cat_id}")]
+async fn get_mapped_category_corr (
+    pool: web::Data<DbPool>,
+    cat_id: web::Path<i32>,
+) -> Result<HttpResponse, Error> {
+
+    let cat_id = cat_id.into_inner();
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || category_mapping_actions::find_mapped_category_corrs(cat_id, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
+/// Get a list of all the correspondences that are not mapped
+#[get("/ui-services/v1/category-correspondence-mappings/unmapped")]
+async fn get_unmapped_category_corr(
+    pool: web::Data<DbPool>,
+) -> Result<HttpResponse, Error> {
+
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || category_mapping_actions::find_unmapped_category_corrs(&conn))
         .await
         .map_err(|e| {
             eprintln!("{}", e);
@@ -195,44 +332,21 @@ async fn add_languages(
 
 
 
-/// Get a list of all the correspondences that have been defined.
-#[get("/ui-services/v1/correspondences")]
-async fn get_corrs(
-    pool: web::Data<DbPool>,
-) -> Result<HttpResponse, Error> {
-
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || corr_actions::find_corrs(&conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
 
 
-/// Create correspondences given an array of corrs
-#[post("/ui-services/v1/correspondences")]
-async fn add_corrs(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::NewCorrespondence>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
 
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || corr_actions::insert_new_corrs(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
 
-    Ok(HttpResponse::Ok().json(results))
-}
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -249,26 +363,6 @@ async fn add_corrs(
 
 //     // use web::block to offload blocking Diesel code without blocking server thread
 //     let results = web::block(move || category_mapping_actions::find_category_mappings(cat_id, &conn))
-//         .await
-//         .map_err(|e| {
-//             eprintln!("{}", e);
-//             HttpResponse::InternalServerError().finish()
-//         })?;
-
-//     Ok(HttpResponse::Ok().json(results))
-// }
-
-
-/// Get a list of all the correspondences that are not mapped
-// #[get("/ui-services/v1/category-correspondence-mappings/not_mapped")]
-// async fn get_unmapped_category_corr_mappings (
-//     pool: web::Data<DbPool>,
-// ) -> Result<HttpResponse, Error> {
-
-//     let conn = pool.get().expect("couldn't get db connection from pool");
-
-//     // use web::block to offload blocking Diesel code without blocking server thread
-//     let results = web::block(move || category_mapping_actions::find_corr_not_mapped(&conn))
 //         .await
 //         .map_err(|e| {
 //             eprintln!("{}", e);
@@ -422,16 +516,21 @@ async fn main() -> std::io::Result<()> {
             .data(pool.clone())
             .wrap(middleware::Logger::default())
             .service(get_categories)
-            .service(add_categories)
             .service(upsert_categories)
             .service(delete_categories)
+            .service(get_correspondences)
+            .service(upsert_correspondences)
+            .service(delete_correspondences)
+
             .service(get_channels)
-            .service(add_channels)
+            .service(upsert_channels)
+            .service(delete_channels)
             .service(get_languages)
-            .service(add_languages)
-            .service(get_corrs)
-            .service(add_corrs)
-                // .service(get_category_corr_mappings)
+            .service(upsert_languages)
+            .service(delete_languages)
+
+            .service(get_mapped_category_corr)
+            .service(get_unmapped_category_corr)
             // .service(add_category_corr_mappings)
             // .service(get_unmapped_category_corr_mappings)
             // .service(get_template)

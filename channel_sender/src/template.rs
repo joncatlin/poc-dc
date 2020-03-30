@@ -1,11 +1,4 @@
-use handlebars::{
-    to_json, Context, Handlebars, Helper, JsonRender, Output, RenderContext, RenderError,
-};
-use handlebars::template:: {TemplateElement, HelperTemplate, Parameter, DecoratorTemplate};
-use handlebars::Path:: {Relative, Local};
 // use handlebars::Path:: {Relative as HBRelative, Local as HBLocal};
-
-mod template {
 
 
     //************************************************************************
@@ -93,7 +86,7 @@ mod template {
                 debug!("Found Path: {:?} - adding it to list of fields\n", path);
                 match path {
                     handlebars::Path::Relative(tup1) => {
-                        let (path_seg, var_name) = tup1;
+                        let (_, var_name) = tup1;
                         info!("RELATIVE with name={} tuple={:?}", var_name, tup1);
                         fields.push(var_name.clone());
     //                    get_fields_in_path_seg(path_seg);
@@ -111,9 +104,8 @@ mod template {
 
 
     //************************************************************************
-    fn get_fields_in_path_seg(ps: Vec<()>) {
+//    fn get_fields_in_path_seg(ps: Vec<()>) {
         // Not implemented yet
 
         // This is likely needed to remove fields that are nested within a structure
-    }
-}
+//    }
