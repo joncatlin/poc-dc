@@ -44,7 +44,7 @@ pub fn find_mapped_category_corrs (
             .expect("Error loading channel_configs");
 
         // Create a new structure from the mappings data
-        let new_struct = models::CategoryMappingsTest {
+        let new_struct = models::CategoryMappingsWithChannelConfig {
             category_mappings_id: cat_map.category_mappings_id, 
             category: cat_map.category,
             correspondence: cat_map.correspondence,

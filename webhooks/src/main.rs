@@ -230,68 +230,85 @@ async fn sms_hook(transmitter: web::Data<Sender<MessageEvent>>, form: web::Form<
 //************************************************************************
 #[post("/csc/webhooks/email")]
 async fn email_hook(transmitter: web::Data<Sender<MessageEvent>>, body: Bytes) -> Result<HttpResponse, Error> {
-    let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
-    match result {
-        Ok(v) => { 
-            info!("EVENT-EMAIL-Received:{}", v.dump());
 
-            let event = create_email_event(v);
+    info!("DEBUG-EVENT-EMAIL-Received:{:?}", body);
+//    let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
+    // match result {
+    //     Ok(v) => { 
+    //         info!("EVENT-EMAIL-Received:{}", v.dump());
 
-            debug!("EVENT-EMAIL-To be sent = {}", serde_json::to_string(&event).unwrap());
+    //         let event = create_email_event(v);
 
-            // Send the event here
-            // TODO handle the return code properly
-            transmitter.send(event).unwrap();
+    //         debug!("EVENT-EMAIL-To be sent = {}", serde_json::to_string(&event).unwrap());
 
-            return Ok(HttpResponse::Ok()
-                .content_type("application/json")
-                .body(OK_STATUS));
-        },
-        Err(e) => {
-            warn!("EVENT-EMAIL-body contained {} and parse error was: {}", std::str::from_utf8(&body).unwrap(), e.to_string());
-            let err_msg = json::object! {"err" => e.to_string()};
-            return Ok(HttpResponse::BadRequest()
-                .content_type("application/json")
-                .body(err_msg.dump()
-            ));
-        }
-    };
+    //         // Send the event here
+    //         // TODO handle the return code properly
+    //         transmitter.send(event).unwrap();
+
+    //         return Ok(HttpResponse::Ok()
+    //             .content_type("application/json")
+    //             .body(OK_STATUS));
+    //     },
+    //     Err(e) => {
+    //         warn!("EVENT-EMAIL-body contained {} and parse error was: {}", std::str::from_utf8(&body).unwrap(), e.to_string());
+    //         let err_msg = json::object! {"err" => e.to_string()};
+    //         return Ok(HttpResponse::BadRequest()
+    //             .content_type("application/json")
+    //             .body(err_msg.dump()
+    //         ));
+    //     }
+    // };
+
+    let responses: Vec<serde_json::Value> = serde_json::from_str(std::str::from_utf8(&body).unwrap()).unwrap();
+    for resp in responses {
+        info!("EVENT-EMAIL-Received:{:?}", resp);
+
+        // Create the event and produce it to a kafka topic
+        let event = create_email_event(resp);
+        transmitter.send(event).unwrap();
+    }
+
+
+    Ok(HttpResponse::Ok()
+        .content_type("application/json")
+        .body(OK_STATUS))
+
 }
 
 
 
 //************************************************************************
-fn create_email_event(v: JsonValue) -> MessageEvent {
+fn create_email_event(v: serde_json::Value) -> MessageEvent {
+// fn create_email_event(v: JsonValue) -> MessageEvent {
 
-    // Ensure the timestamp is an i64 before converting it to the correct date/time format
-    let datetime = match v["timestamp"].as_i64() {
+    let datetime = match v.get("timestamp").unwrap().as_i64() {
         None => {
             // Log that the event received's timestamp is not i64 and default to using the time now
-            warn!("Received a timestamp of: [{}] when expecting value of type 64 bit integer. Defaulting timstamp to time now. Full message received: {}",
-                v["timestamp"], v.dump());
+            warn!("Received a timestamp of: [{}] when expecting value of type 64 bit integer. Defaulting timstamp to time now. Full message received: {:?}",
+            v.get("timestamp").unwrap(), v);
                 Utc::now().to_rfc2822()
         },
         Some(i) => DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(i, 0), Utc).to_rfc2822()
     };
-    
+
     // Ensure the id is a string
-    let id = match v["smtp-id"].as_str() {
+    let id = match v.get("sg_message_id").unwrap().as_str() {
         Some(s) => s, 
         None => {
             // Log that the id is not a string
-            warn!("Received a event with an id that is not a string: [{}]. Defaulting id to empty string. Full message received: {}",
-                v["smtp_id"], v.dump());
+            warn!("Received a event with an id that is not a string: [{}]. Defaulting id to empty string. Full message received: {:?}",
+                v.get("sg_message_id").unwrap(), v);
             ""
         }, 
     };          
 
     // Convert the status  
-    let status = match v["event"].as_str() {
+    let status = match v.get("event").unwrap().as_str() {
         Some(s) => s, 
         None => {
             // Log that the statis is not a string
-            warn!("Received an event status with that is not a string: [{}]. Defaulting status to \"unknown\". Full message received: {}",
-                v["event"], v.dump());
+            warn!("Received an event status with that is not a string: [{}]. Defaulting status to \"unknown\". Full message received: {:?}",
+                v.get("event").unwrap(), v);
             "unknown"
         }, 
     }; 
@@ -303,7 +320,7 @@ fn create_email_event(v: JsonValue) -> MessageEvent {
         channel: "email".to_string(), 
         status: status.to_string(), 
         datetime_rfc2822: datetime,
-        event_specific_data: v.dump(),
+        event_specific_data: v.to_string(),
     };
 
     return event;

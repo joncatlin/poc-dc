@@ -290,24 +290,27 @@ async fn send_email(account_fields: &Value, email_content: String, api_key: &Str
         r#"{{"personalizations": [{{"to": [{{"email": "{}"}}],"subject": "{}"}}],"from": {{"email": "{}"}},"content": [{{"type": "text/html","value": "{}"}}]}}"#, 
         email_to, email_subject, email_from, email_content
     );
+    debug!("filled_email_struct contains: {}", filled_email_struct);
 
-    let url = "https://api.sendgrid.com/v3/mail/send HTTP/1.1";
+    let url = "https://api.sendgrid.com/v3/mail/send";
 
-    // TODO look into passing this in to increase performance
+    // TODO look into passing this in to increase performance, instead of building it each time
     let client = reqwest::Client::new();
     let res = client
         .post(url)
         .bearer_auth(api_key)
+        .header("Content-Type", "application/json")
         .body(filled_email_struct)
         .send()
         .await
         .unwrap();
 
-    let response_text = res.text().await.unwrap();
-    debug!("Response from send_email reqwest: {}", response_text);
 
     // TODO if the response status is not 200 then an error needs to be generated
     // TODO need to deal with the errors that could come back from reqwest
+    if !res.status().is_success() {
+        error!("Response from send_email reqwest was failure. Status: {}, Text: {}", res.status(), res.text().await.unwrap());
+    }
 
     Ok(())
 }
