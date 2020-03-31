@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Example of print layout</title>
+    <script src="https://cdn.ckeditor.com/ckeditor5/16.0.0/inline/ckeditor.js"></script>
+    <link rel="stylesheet" type="text/css" href="./template1.css" />
+</head>
+<body>
+    <div id="page_doc">
+        <div id="logo">
+            <img src="./logos/{{client}}.png" alt="{{client}} logo" class="contain">
+        </div>
+        <div id="from">
+            <p>From address</p>
+        </div>
+        <div id="to">
+            <p>{{first_name}} {{last_name}}
+                <br>{{address1}}
+                <br>{{address2}}
+                <br>{{address3}}
+                <br>{{city}}
+                <br>{{state}} {{zip}}
+            </p>
+        </div>
+        <div id="main">
+            <p>Dear {{#if (eq gender "m")}}Mr{{else}}Mrs{{/if}} {{last_name}} thank you for being a valued customer of ours. </p>
+            <p>We would like to extend this wonderful offer to you. Please go to our website at www.concordservicing.com to sign up.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <td>Account number</td>
+                        <td>Number of days past due</td>
+                        <td>Amount Due</td>
+                        <td> </td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#each accounts as |account| ~}}
+                        <tr>
+                            <td>{{account.account_number}}</td>
+                            <td>{{account.days_delinquent}}</td>
+                            <td>{{money_fmt ../currency account.amount_due}}</td>
+                            {{#if (gt account.days_delinquent 10)}}
+                                <td>YOUR ACCOUNT IS PAST DUE!!</td>
+                            {{/if}}
+                        </tr>
+                    {{/each}}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td></td>
+                        <td>TOTAL</td>
+                        <td>{{total_amount_due currency accounts}}</td>
+                    </tr>
+            </tfoot>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
