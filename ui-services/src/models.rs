@@ -48,15 +48,6 @@ pub struct Channel {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Queryable, Identifiable)]
-#[table_name="channels"]
-#[primary_key(channel_id)]
-pub struct EmbedChannel {
-    pub channel_id: i32,
-    pub channel_name: String,
-}
-
-
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable)]
 #[table_name="channels"]
 pub struct NewChannel {
@@ -104,7 +95,7 @@ pub struct CategoryMapping {
     pub category_id: i32,
     #[diesel(embed)]
     pub correspondence: EmbedCorrespondence,
-    pub opt_out: i32,
+    pub opt_out: Option<String>,
     pub retention_period: i32,
     // #[diesel(embed)]
     // pub channel_config: ChannelConfig,
@@ -116,21 +107,20 @@ pub struct CategoryMapping {
 pub struct NewCategoryMapping {
     pub category_id: i32,
     pub correspondence_id: i32,
-    pub opt_out: i32,
+    pub opt_out: Option<String>,
     pub retention_period: i32,
 }
 
 
-// CREATE TABLE category_mappings (
-//     category_mappings_id    SERIAL,
-//     category_id             INTEGER NOT NULL,
-//     correspondence_id       INTEGER NOT NULL,
-//     opt_out                 INTEGER NOT NULL,
-//     retention_period        INTEGER NOT NULL,
-//     PRIMARY KEY (category_mappings_id),
-//     FOREIGN KEY (category_id) REFERENCES categories (category_id),
-//     FOREIGN KEY (correspondence_id) REFERENCES corrs (correspondence_id)
-// )
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable)]
+#[table_name="category_mappings"]
+pub struct CategoryMappingQuery {
+    pub category_mappings_id: i32,
+    pub category_id: i32,
+    pub correspondence_id: i32,
+    pub opt_out: Option<String>,
+    pub retention_period: i32,
+}
 
 
 #[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
@@ -145,7 +135,7 @@ pub struct MappedCategories {
     #[diesel(embed)]
     pub correspondence: Correspondence,
     
-    pub opt_out: i32,
+    pub opt_out: Option<String>,
     pub retention_period: i32,
 
     // #[diesel(embed)]
@@ -165,14 +155,21 @@ pub struct CategoryMappings {
     #[diesel(embed)]
     pub correspondence: Correspondence,
     
-    pub opt_out: i32,
+    pub opt_out: Option<String>,
     pub retention_period: i32,
 
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Identifiable)]
+#[table_name="category_mappings"]
+#[primary_key(category_mappings_id)]
+pub struct ExistingCategoryMappings {
+    pub category_mappings_id: i32,
+}
 
-#[derive(Debug, Serialize)]
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CategoryMappingsWithChannelConfig {
     pub category_mappings_id: i32,
     
@@ -180,7 +177,7 @@ pub struct CategoryMappingsWithChannelConfig {
 
     pub correspondence: Correspondence,
     
-    pub opt_out: i32,
+    pub opt_out: Option<String>,
     pub retention_period: i32,
 
     pub channel_config: Vec<ChannelConfig>,
@@ -200,19 +197,53 @@ pub struct CategoryMappingsWithChannelConfig {
 
 
 // Channel configurations
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Identifiable, Associations)]
+// #[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Identifiable, Associations)]
+// //#[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Identifiable)]
+// #[table_name="channel_configs"]
+// #[primary_key(channel_config_id)]
+// #[belongs_to(CategoryMappings)]
+// pub struct ChannelConfigOLD {
+//     pub channel_config_id: i32,
+//     pub category_mappings_id: i32,
+ 
+//     #[diesel(embed)]
+//     pub channel: EmbedChannel,
+
+//     pub permitted: Option<String>,
+// }
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Identifiable)]
+#[table_name="channels"]
+#[primary_key(channel_id)]
+pub struct EmbedChannel {
+    pub channel_id: i32,
+    pub channel_name: String,
+}
+
+
+// Channel configurations
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Identifiable)]
+//#[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Identifiable)]
 #[table_name="channel_configs"]
 #[primary_key(channel_config_id)]
-#[belongs_to(CategoryMappings)]
 pub struct ChannelConfig {
     pub channel_config_id: i32,
     pub category_mappings_id: i32,
  
-    pub channel_id: i32,
-    // #[diesel(embed)]
-    // pub channel: EmbedChannel,
+    #[diesel(embed)]
+    pub channel: EmbedChannel,
 
-    pub permitted: i32,
+    pub permitted: Option<String>,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, Insertable)]
+#[table_name="channel_configs"]
+pub struct NewChannelConfig {
+    pub category_mappings_id: i32,
+    pub channel_id: i32,
+    pub permitted: Option<String>,
 }
 
 

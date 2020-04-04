@@ -10,7 +10,7 @@ table! {
         category_mappings_id -> Int4,
         category_id -> Int4,
         correspondence_id -> Int4,
-        opt_out -> Int4,
+        opt_out -> Nullable<Varchar>,
         retention_period -> Int4,
     }
 }
@@ -20,7 +20,7 @@ table! {
         channel_config_id -> Int4,
         category_mappings_id -> Int4,
         channel_id -> Int4,
-        permitted -> Int4,
+        permitted -> Nullable<Varchar>,
     }
 }
 

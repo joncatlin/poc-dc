@@ -10,13 +10,6 @@ use actix_web::{get, middleware, post, put, delete, web, App, Error, HttpRespons
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
-use std::io::Write;
-use chrono::{Local};
-use env_logger::Builder;
-use log::LevelFilter;
-
-
-
 mod models;
 mod category_actions;
 mod language_actions;
@@ -24,6 +17,7 @@ mod channel_actions;
 mod template_actions;
 mod corr_actions;
 mod category_mapping_actions;
+mod channel_config_actions;
 mod schema;
 
 
@@ -263,8 +257,6 @@ async fn upsert_languages(
     Ok(HttpResponse::Ok().json(results))
 }
 
-// Rubbish
-
 /// Delete a list of languages
 #[delete("/ui-services/v1/languages")]
 async fn delete_languages(
@@ -328,11 +320,48 @@ async fn get_unmapped_category_corr(
 
     Ok(HttpResponse::Ok().json(results))
 }
+ 
+
+/// Delete category correspondence mappings given a category id
+#[delete("/ui-services/v1/category-correspondence-mappings/mapped/{cat_id}")]
+async fn delete_mapped_category_corr(
+    pool: web::Data<DbPool>,
+    cat_maps: web::Json<Vec<i32>>,
+    cat_id: web::Path<i32>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let cat_id = cat_id.into_inner();
+    let results = web::block(move || category_mapping_actions::delete_existing_category_mappings(cat_id, &cat_maps, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
 
 
+/// Upsert category correspondence mappings given a category id
+#[put("/ui-services/v1/category-correspondence-mappings/mapped")]
+async fn upsert_category_correspondence_mappings(
+    pool: web::Data<DbPool>,
+    cat_maps: web::Json<Vec<models::CategoryMappingsWithChannelConfig>>,
+) -> Result<HttpResponse, Error> {
+    let conn = pool.get().expect("couldn't get db connection from pool");
 
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || category_mapping_actions::upsert_new_category_mappings(&cat_maps, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
 
-
+    Ok(HttpResponse::Ok().json(results))
+}
 
 
 
@@ -481,22 +510,7 @@ async fn add_templates(
 //***********************************************************************************
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize the logger for stdout
-    Builder::new()
-        .format(|buf, record| {
-            writeln!(buf,
-                "{} [{}] - {}",
-                Local::now().format("%Y-%m-%dT%H:%M:%S"),
-                record.level(),
-                record.args()
-            )
-        })
-        .filter(None, LevelFilter::Info)
-        .init();
-
-    // std::env::set_var("RUST_LOG", "actix_web=debug,diesel=debug");
-    // env_logger::init();
-    // dotenv::dotenv().ok();
+    env_logger::init();
 
     // set up database connection pool
     let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL");
@@ -531,6 +545,8 @@ async fn main() -> std::io::Result<()> {
 
             .service(get_mapped_category_corr)
             .service(get_unmapped_category_corr)
+            .service(delete_mapped_category_corr)
+            .service(upsert_category_correspondence_mappings)
             // .service(add_category_corr_mappings)
             // .service(get_unmapped_category_corr_mappings)
             // .service(get_template)

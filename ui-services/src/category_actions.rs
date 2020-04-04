@@ -4,6 +4,7 @@ use diesel::prelude::*;
 use crate::models;
 
 
+// Rubbish
 /// Find all categories
 pub fn find_categories (
     conn: &PgConnection,
@@ -11,7 +12,7 @@ pub fn find_categories (
     use crate::schema::categories::dsl::*;
 
     let results = categories
-        .limit(1000)
+        .order(category_name.asc())
         .load::<models::Category>(conn)
         .expect("Error loading posts");
 

@@ -1,39 +1,7 @@
 use diesel::prelude::*;
+use diesel::sql_types::Integer;
 
-//mod models;
 use crate::models;
-
-
-// /// Find all channels
-// pub fn find_channels (
-//     conn: &PgConnection,
-// ) -> Result<Vec<models::Channel>, diesel::result::Error> {
-//     use crate::schema::channels::dsl::*;
-
-//     let results = channels
-//         .limit(100)
-//         .load::<models::Channel>(conn)
-//         .expect("Error loading posts");
-
-//     Ok(results)
-// }
-
-
-// /// Run query using Diesel to insert a new database row and return the result.
-// pub fn insert_new_channels(
-//     cats: &Vec<models::NewChannel>,
-//     conn: &PgConnection,
-// ) -> Result<Vec<models::Channel>, diesel::result::Error> {
-//     use crate::schema::channels::dsl::*;
-
-//     let results = diesel::insert_into(channels)
-//         .values(cats)
-//         .get_results(conn)
-//         .expect("Error saving new post");
-
-//     Ok(results)
-// }
-
 
 /// Find all channels
 pub fn find_channels (
@@ -57,11 +25,14 @@ pub fn upsert_new_channels(
 ) -> Result<Vec<models::Channel>, diesel::result::Error> {
     use crate::schema::channels::dsl::*;
 
-    let mut inserts = Vec::new();
+    let mut new_channel_names = Vec::new();
+    let mut new_channel_names_to_pass = Vec::new();
 
     for item in upsert_list {
         if item.channel_id == -1 {
-            inserts.push(models::NewChannel{channel_name: item.channel_name.clone()});
+            new_channel_names.push(channel_name.eq(item.channel_name.clone()));
+            new_channel_names_to_pass.push(item.channel_name.clone());
+            // inserts.push(models::NewChannel{channel_name: item.channel_name.clone()});
         } else {
             // Update the existing channels
             info!("Updating channel with values: {:?}", item);
@@ -75,14 +46,16 @@ pub fn upsert_new_channels(
         }
     }
 
-    // Insert the new channels
     match diesel::insert_into(channels)
-        .values(inserts)
+        .values(new_channel_names)
         .execute(conn)
     {
-        Ok(results) => debug!("Successful insert into channels. Result: {:?}", results),
+        Ok(_) => {
+            // Create a channel_config for each new channel created
+            create_new_channel_configs(&new_channel_names_to_pass, &conn);
+        },
         Err(e) => error!("Error inserting channels, error: {:?}", e),
-    }
+    };
 
     // Send back a complete list of the items in the table
     let results = channels
@@ -101,7 +74,12 @@ pub fn delete_existing_channels(
 ) -> Result<Vec<models::Channel>, diesel::result::Error> {
     use crate::schema::channels::dsl::*;
 
+    let mut channel_ids = Vec::<i32>::new();
+
     for item in delete_list {
+        // Save the id for later use in deleting the channel_configs
+        channel_ids.push(item.channel_id);
+
         // Delete the existing channels
         info!("Deleteing channel with values: {:?}", item);
         match diesel::delete(channels.filter(channel_id.eq(item.channel_id)))
@@ -112,6 +90,9 @@ pub fn delete_existing_channels(
         }
     }
 
+    // Delete all channel_configs that contain any of the channel ids
+    delete_existing_channel_configs(&channel_ids, &conn);
+
     // Send back a complete list of the items left in the table after the delete
     let results = channels
         .limit(1000)
@@ -120,5 +101,102 @@ pub fn delete_existing_channels(
 
     Ok(results)
 }
+
+
+// Create new channel_confids for any new channel added
+pub fn create_new_channel_configs(
+    channel_names: &Vec<String>,
+    conn: &PgConnection
+) {
+    use crate::schema::channel_configs::dsl::*;
+
+    // Get the ids of the new channels
+    let chan_ids = find_channel_ids(channel_names, &conn);
+
+    // Get the existing category_mappings
+    let map_ids = find_category_mapping_ids(&conn);
+
+    // For each new channel create a channel_config struct for every category mapping and then insert them all into the DB
+    let mut new_channel_configs = Vec::<models::NewChannelConfig>::new();
+    for map in map_ids {
+        for chan in &chan_ids {
+            let new_channel_config = models::NewChannelConfig {
+                category_mappings_id: map.category_mappings_id,
+                channel_id: *chan,
+                permitted: None,
+            };
+            new_channel_configs.push(new_channel_config);
+        } 
+    }
+
+    // Insert the new channel configs
+    match diesel::insert_into(channel_configs)
+        .values(new_channel_configs)
+        .execute(conn)
+    {
+        Ok(results) => {
+            debug!("Successful insert into channel_configs. Result: {:?}", results);
+        },
+        Err(e) => error!("Error inserting channel_configs, error: {:?}", e),
+    }
+}
+
+
+// Find the channel ids given the names
+fn find_channel_ids (
+    channel_names: &Vec<String>,
+    conn: &PgConnection
+) -> Vec<i32>
+{
+    use crate::schema::channels::dsl::*;
+
+    // This is a HACK! There must be a way to filter on a set of names rather than to do this in a loop!
+    let mut ids = Vec::new();
+    for name in channel_names {
+        ids.push(channels.select(channel_id).filter(channel_name.eq(name)).first(conn).unwrap());
+    }
+
+    ids
+}
+
+
+// Find the channel ids given the names
+fn find_category_mapping_ids (
+    conn: &PgConnection
+) -> Vec<models::ExistingCategoryMappings>
+{
+    use diesel::sql_query;
+
+    // Get a list of all the category correspondence mappings that a new channel_config needs to be created for
+    let category_mappings = sql_query("
+        SELECT 
+            category_mappings_id
+        FROM category_mappings
+    ")
+        .load::<models::ExistingCategoryMappings>(conn)
+        .expect("Error loading category to correspondence mapping");
+
+    category_mappings
+}
+
+
+/// Delete all channel_configs that contain a channel_id
+pub fn delete_existing_channel_configs(
+    delete_list: &Vec<i32>,
+    conn: &PgConnection,
+) 
+{
+    use diesel::sql_query;
+
+    for channel_id in delete_list {
+        sql_query("DELETE FROM channel_configs WHERE channel_id = $1")
+            .bind::<Integer, _>(channel_id)
+            .execute(conn)
+            .expect("Error deleteing channel_configs");
+    }
+}
+
+
+
 
 

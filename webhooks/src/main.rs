@@ -73,18 +73,7 @@ const OK_STATUS: &str = "{ \"status\" : \"Ok\" }";
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
 
-    // Initialize the logger for stdout
-    Builder::new()
-        .format(|buf, record| {
-            writeln!(buf,
-                "{} [{}] - {}",
-                Local::now().format("%Y-%m-%dT%H:%M:%S"),
-                record.level(),
-                record.args()
-            )
-        })
-        .filter(None, LevelFilter::Info)
-        .init();
+    env_logger::init();
 
     // Use a channel for the web responders to communicate with the Kafka polling and sending thread. This
     // prevents the issue with trying to share a Kafka Producer amongst various threads.

@@ -278,12 +278,14 @@ async fn send_sms(account_fields: &Value, sms_content: String, vendor_acc_id: &S
 //************************************************************************
 async fn send_email(account_fields: &Value, email_content: String, api_key: &String) -> Result<(), Box<dyn std::error::Error>> {
 
-    debug!("Starting to send_email. account_fields: {:?}, email_content: {:?}, api_key: {:?}", account_fields, email_content, api_key);
+    debug!("Starting to send_email. email_content: {}", email_content);
 
     // Get the fields for the email
-    let email_to = &account_fields["email"];
-    let email_from = &account_fields["email_from"];
-    let email_subject = format!("A message from - {}", account_fields["client_name"]);
+    let email_to = &account_fields["email"].as_str().unwrap();
+    let email_from = &account_fields["email_from"].as_str().unwrap();
+
+    // TODO determine where the email subject is coming from in the final solution
+    let email_subject = format!("A message from - {}", account_fields["client_name"].as_str().unwrap());
 
     // Create the body of the request
     let filled_email_struct = format!(

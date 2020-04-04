@@ -128,3 +128,12 @@ Once completed check that each secret exists by using the following command:
 ```
 docker secret ls
 ```
+To update an existing secret you must remove and then recreate
+
+
+#  TODO for Production
+The following are a list of things that need to get done prior to being close to production ready.
+1. Sort out error handling throughout the entire solution. Need to readup the best practices and implement.
+2. Apply ON DELETE CASCADE correctly to tables to ensure correct tidyup. Then change the code to take advantage of this.
+3. Use transactions for all DB communications to ensure it all succeeds or fails and there are no bits left should something fail
+4. Locking for the UI? Must consider locking during all the DB updates. Figure out what the default for the DB is.
