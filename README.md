@@ -137,3 +137,4 @@ The following are a list of things that need to get done prior to being close to
 2. Apply ON DELETE CASCADE correctly to tables to ensure correct tidyup. Then change the code to take advantage of this.
 3. Use transactions for all DB communications to ensure it all succeeds or fails and there are no bits left should something fail
 4. Locking for the UI? Must consider locking during all the DB updates. Figure out what the default for the DB is.
+5. Unit tests for each element of the solution

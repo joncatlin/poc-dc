@@ -11,7 +11,7 @@ pub fn find_languages (
     use crate::schema::languages::dsl::*;
 
     let results = languages
-        .limit(1000)
+        .order(language_name.asc())
         .load::<models::Language>(conn)
         .expect("Error loading languages");
 

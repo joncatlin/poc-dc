@@ -59,7 +59,8 @@ async fn produce() {
     // Create a DC msg as the payload
     // let tc = TemplateChannel {template_id: 3, language_id: 2, channel: "sms".to_string()};
     let tc = TemplateChannel {template_id: 1, language_id: 2, channel: "email".to_string()};
-    let a = vec!("account1".to_string(), "account2".to_string(), "account3".to_string(), "account4".to_string());
+//    let a = vec!("account1".to_string(), "account2".to_string(), "account3".to_string(), "account4".to_string());
+    let a = vec!("account1".to_string());
     let dc = DC {id: "this is the id2".to_string(), template_channels: vec!(tc), accounts: a};            
     let dc_string = serde_json::to_string(&dc).unwrap();
 

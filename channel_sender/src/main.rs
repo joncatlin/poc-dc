@@ -39,6 +39,8 @@ use handlebars::Handlebars;
 //use handlebars::template:: {TemplateElement, HelperTemplate, Parameter, DecoratorTemplate};
 //use handlebars::Path:: {Relative, Local as HBLocal};
 
+use hexdump;
+
 mod template;
 mod css_interface;
 
@@ -278,7 +280,7 @@ async fn send_sms(account_fields: &Value, sms_content: String, vendor_acc_id: &S
 //************************************************************************
 async fn send_email(account_fields: &Value, email_content: String, api_key: &String) -> Result<(), Box<dyn std::error::Error>> {
 
-    debug!("Starting to send_email. email_content: {}", email_content);
+    debug!("Starting to send_email. email_content: [{}]", email_content);
 
     // Get the fields for the email
     let email_to = &account_fields["email"].as_str().unwrap();
@@ -292,7 +294,7 @@ async fn send_email(account_fields: &Value, email_content: String, api_key: &Str
         r#"{{"personalizations": [{{"to": [{{"email": "{}"}}],"subject": "{}"}}],"from": {{"email": "{}"}},"content": [{{"type": "text/html","value": "{}"}}]}}"#, 
         email_to, email_subject, email_from, email_content
     );
-    debug!("filled_email_struct contains: {}", filled_email_struct);
+    debug!("filled_email_struct contains: [{}]", filled_email_struct);
 
     let url = "https://api.sendgrid.com/v3/mail/send";
 
@@ -401,6 +403,12 @@ fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &St
 
             // Combine the template with the fields retrieved for the account
             let populated_template = hb.render(&template_file_name, &account_fields).expect("render error");
+
+            println!("=========================== Start hex dump ================================================");
+            hexdump::hexdump(populated_template.as_bytes());
+            println!("=========================== End hex dump ================================================");
+
+            debug!("The rendered template contains: [{}]", populated_template);
 
             // Send the digital communication for the account through the correct channel
             let result = match &*template_channel.channel {

@@ -10,7 +10,7 @@ pub fn find_channels (
     use crate::schema::channels::dsl::*;
 
     let results = channels
-        .limit(1000)
+        .order(channel_name.asc())
         .load::<models::Channel>(conn)
         .expect("Error loading channels");
 

@@ -41,7 +41,7 @@ pub fn find_correspondences (
     use crate::schema::corrs::dsl::*;
 
     let results = corrs
-        .limit(1000)
+        .order(correspondence_name.asc())
         .load::<models::Correspondence>(conn)
         .expect("Error loading posts");
 

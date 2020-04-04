@@ -1,14 +1,44 @@
-#[macro_use]
 extern crate reqwest;
-// #[macro_use] 
 extern crate hyper;
 
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use serde_json::{Value};
 
 
-use reqwest::Client;
+//use reqwest::Client;
 use futures::executor::block_on;
+
+// The structures that comprise the message sent to the REST API for an email
+#[derive(Serialize)]
+struct MessageBody {
+  personalizations: Vec<Personalizations>,
+  from: Email,
+  content: Vec<Content>,
+}
+
+#[derive(Serialize)]
+struct Personalizations {
+  to: Vec<Email>,
+  subject: String,
+}
+
+#[derive(Serialize)]
+struct Email {
+  email: String,
+}
+
+#[derive(Serialize)]
+struct To {
+  to: Vec<Email>,
+}
+
+// Need to escape the reserved word
+#[derive(Serialize)]
+struct Content {
+  r#type: String,
+  value: String,
+}
+
 
 #[tokio::main]
 async fn main() {
@@ -16,13 +46,35 @@ async fn main() {
 
     let mut template_fields = Vec::<String>::new();
 
-    let accounts = vec!("account1".to_string(), "account2".to_string());
+//    let accounts = vec!("account1".to_string(), "account2".to_string());
+    let accounts = vec!("account1".to_string());
 
-    let email_vendor_token = "".to_string();
+    let email_vendor_token = "<put token here>".to_string();
 
     // Get the fields for the account
     for account in accounts {
-        let email_content = format!("Hi jon this is an email from Rust. TIME=");
+        let email_content = format!(r#"
+          <p>Hi jon this is an email from Rust. TIME=</p>
+          <div>
+            <ul>
+              <p>Item1</p>
+              <p>Item1</p>
+              <p>Item1</p>
+              <p>Item1</p>
+              <p>Item1</p>
+              <p>Item1</p>
+            </ul>
+            <ol>
+              <p>Tew1</p>
+              <p>Tew2</p>
+            </ol>
+          </div>
+          <p>This is the imge from manorfarm nurseries.com</p>
+          <img alt="MFN Image" src="http://manorfarmnurseries.com/wp-content/themes/yootheme/cache/HomePage-b4d85cc4.jpeg"
+            width="400 height="400"
+          >
+          <p>End of the image</p>
+        "#);
         let account_fields = get_account_fields(&account, &template_fields);
         block_on(send(&account_fields, email_content, &email_vendor_token));
     }
@@ -47,14 +99,56 @@ async fn send(account_fields: &Value, email_content: String, api_key: &String) {
     let email_from = &account_fields["email_from"].as_str().unwrap();
     let email_subject = format!("A message from - {}", account_fields["client_name"].as_str().unwrap());
 
-    
-    // Create the body of the request
-    let filled_email_struct = format!(
-        r#"{{"personalizations": [{{"to": [{{"email": "{}"}}],"subject": "{}"}}],"from": {{"email": "{}"}},"content": [{{"type": "text/html","value": "{}"}}]}}"#, 
-        email_to, email_subject, email_from, email_content
-    );
+    let tos = vec!(Email {email: email_to.to_string()});
 
-    println!("filled_email_struct: \n{}", filled_email_struct);
+    let ps = vec!(Personalizations {
+      to: tos,
+      subject: email_subject,
+    });
+
+    let ct = vec!(Content {r#type: "text/html".to_string(), value: email_content});
+    let ef = Email {email: email_from.to_string()};
+
+    let msg = MessageBody {
+      personalizations: ps,
+      from: ef,
+      content: ct,
+    };
+
+    let json_msg = serde_json::to_string(&msg).expect("Failed to convert msg to json_msg");
+
+
+    // struct MessageBody {
+    //   personalizatios: Vec<Personalizations>,
+    //   from: Email,
+    //   content: Content,
+    // }
+
+    // struct Personalizations {
+    //   to: Vec<Email>,
+    //   subject: String,
+    // }
+
+    // struct Email {
+    //   email: String,
+    // }
+
+    // struct To {
+    //   to: Vec<Email>,
+    // }
+
+    // struct Content {
+    //   type: String,
+    //   value: String,
+    // }
+
+    // Create the body of the request
+    // let filled_email_struct = format!(
+    //     r#"{{"personalizations": [{{"to": [{{"email": "{}"}}],"subject": "{}"}}],"from": {{"email": "{}"}},"content": [{{"type": "text/html","value": "{}"}}]}}"#, 
+    //     email_to, email_subject, email_from, email_content
+    // );
+
+    // println!("filled_email_struct: \n{}", filled_email_struct);
 
     let url = "https://api.sendgrid.com/v3/mail/send";
 
@@ -64,7 +158,7 @@ async fn send(account_fields: &Value, email_content: String, api_key: &String) {
         .post(url)
         .bearer_auth(api_key)
         .header("Content-Type", "application/json")
-        .body(filled_email_struct)
+        .body(json_msg)
         .send()
         .await
         .unwrap();

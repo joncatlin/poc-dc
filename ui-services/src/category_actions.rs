@@ -4,17 +4,18 @@ use diesel::prelude::*;
 use crate::models;
 
 
-// Rubbish
 /// Find all categories
 pub fn find_categories (
     conn: &PgConnection,
 ) -> Result<Vec<models::Category>, diesel::result::Error> {
     use crate::schema::categories::dsl::*;
 
+    // Need to select the 
     let results = categories
         .order(category_name.asc())
         .load::<models::Category>(conn)
         .expect("Error loading posts");
+    debug!("JON find_categories, found: {:?}", results);
 
     Ok(results)
 }

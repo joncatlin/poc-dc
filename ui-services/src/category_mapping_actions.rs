@@ -50,7 +50,7 @@ pub fn find_mapped_category_corrs (
             RIGHT OUTER JOIN channels AS chan 
             ON cfg.channel_id = chan.channel_id
             WHERE cfg.category_mappings_id = $1
-            ORDER BY chan.channel_id
+            ORDER BY chan.channel_name
         ")
             .bind::<Integer, _>(cat_map.category_mappings_id)
             .load::<models::ChannelConfig>(conn)
@@ -83,6 +83,7 @@ pub fn find_unmapped_category_corrs (
              SELECT correspondence_id FROM category_mappings WHERE correspondence_id = corrs.correspondence_id
         )"
     )
+        .order(correspondence_name.asc())
         .load::<models::Correspondence>(conn)
         .expect("Query failed");
     Ok(results)
@@ -223,43 +224,12 @@ pub fn upsert_new_category_mappings(
         }
     }
 
-    // let mut new_channel_names = Vec::new();
-    // let mut new_channel_names_to_pass = Vec::new();
-
-    // for item in upsert_list {
-    //     if item.channel_id == -1 {
-    //         new_channel_names.push(channel_name.eq(item.channel_name.clone()));
-    //         new_channel_names_to_pass.push(item.channel_name.clone());
-    //         // inserts.push(models::NewCategory_mappings{channel_name: item.channel_name.clone()});
-    //     } else {
-    //         // Update the existing category_mappings
-    //         info!("Updating channel with values: {:?}", item);
-    //         match diesel::update(category_mappings.filter(channel_id.eq(item.channel_id)))
-    //             .set(channel_name.eq(item.channel_name.clone()))
-    //             .execute(conn)
-    //         {
-    //             Ok(results) => debug!("Successful update into category_mappings. Result: {:?}", results),
-    //             Err(e) => error!("Error updating category_mappings, error: {:?}", e),
-    //         }
-    //     }
-    // }
-
-    // match diesel::insert_into(category_mappings)
-    //     .values(new_channel_names)
-    //     .execute(conn)
-    // {
-    //     Ok(_) => {
-    //         // Create a channel_config for each new channel created
-    //         create_new_channel_configs(&new_channel_names_to_pass, &conn);
-    //     },
-    //     Err(e) => error!("Error inserting category_mappings, error: {:?}", e),
-    // };
-
     // Send back a complete list of the items in the table
     find_mapped_category_corrs(upsert_list[0].category.category_id, &conn)
 }
 
 
+/// Update the information in the DB for all the channel configs in the Vector
 fn update_channel_configs ( 
     cfgs: &Vec<models::ChannelConfig>,     
     conn: &PgConnection
@@ -280,7 +250,7 @@ fn update_channel_configs (
     }
 }
 
-
+/// Create a chennel config for each existing channel, for the category mapping id passed in
 fn create_channel_configs (
     cat_map_id: i32,
     conn: &PgConnection
