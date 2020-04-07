@@ -47,6 +47,16 @@ table! {
 }
 
 table! {
+    dpl (dpl_id) {
+        dpl_id -> Int4,
+        d -> Nullable<Varchar>,
+        p -> Nullable<Varchar>,
+        l -> Nullable<Varchar>,
+        msg -> Text,
+    }
+}
+
+table! {
     event (message_id, channel, event_status) {
         message_id -> Varchar,
         channel -> Varchar,
@@ -84,6 +94,7 @@ allow_tables_to_appear_in_same_query!(
     channel_configs,
     channels,
     corrs,
+    dpl,
     event,
     languages,
     templates,

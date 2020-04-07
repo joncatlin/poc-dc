@@ -1,18 +1,18 @@
 // use handlebars::Path:: {Relative as HBRelative, Local as HBLocal};
 
 
-    //************************************************************************
-    fn main() {
-        let mut hb = handlebars::Handlebars::new();
+    // //************************************************************************
+    // fn main() {
+    //     let mut hb = handlebars::Handlebars::new();
 
-        // Get the template structure to access the fields within it
-        let template1 = hb.get_template("template1").unwrap();
-        debug!("Temaple1 has fields {:?}", template1);
+    //     // Get the template structure to access the fields within it
+    //     let template1 = hb.get_template("template1").unwrap();
+    //     debug!("Temaple1 has fields {:?}", template1);
 
-        let mut fields = Vec::<String>::new();
-        get_template_fields(&template1.elements, &mut fields);
-        debug!("ALL FIELDS FOUND: {:?}", fields);
-    }
+    //     let mut fields = Vec::<String>::new();
+    //     get_template_fields(&template1.elements, &mut fields);
+    //     debug!("ALL FIELDS FOUND: {:?}", fields);
+    // }
 
 
     //************************************************************************
@@ -87,7 +87,7 @@
                 match path {
                     handlebars::Path::Relative(tup1) => {
                         let (_, var_name) = tup1;
-                        info!("RELATIVE with name={} tuple={:?}", var_name, tup1);
+                        debug!("RELATIVE with name={} tuple={:?}", var_name, tup1);
                         fields.push(var_name.clone());
     //                    get_fields_in_path_seg(path_seg);
                     },

@@ -18,6 +18,36 @@ pub fn find_channels (
 }
 
 
+/// Find channel by name
+pub fn find_channel_by_name (
+    chan_name: String,
+    conn: &PgConnection,
+) -> Result<models::Channel, diesel::result::Error> {
+
+    // use diesel::sql_query;
+
+    // let results = sql_query("
+    //     SELECT 
+    //         channel_id
+    //     FROM channels
+    //     WHERE channel_name = $1
+    // ")
+    //     .bind::<String, _>(chan_name)
+    //     .load::<models::NewChannel>(conn)
+    //     .expect("Error loading category to correspondence mapping");
+
+    use crate::schema::channels::dsl::*;
+
+    let result = channels
+        .filter(channel_name.eq(chan_name))
+        .first::<models::Channel>(conn)
+        .expect("Error loading channels");
+
+    // Return the first result. There should only be one due to the unique key on the table
+    Ok(result)
+}
+
+
 /// Run query using Diesel to insert a new database row and return the result.
 pub fn upsert_new_channels(
     upsert_list: &Vec<models::Channel>,

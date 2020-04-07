@@ -8,18 +8,24 @@ services:
     image: localhost:5000/channel_sender
     networks:
       - kafka
+      - digital-comms
     volumes:
       - type: bind
         source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/channel_sender/templates
-        target: /templates
+        target: /home/docker-user/templates
         read_only: true
+      - type: bind
+        source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/channel_sender/pdf-output
+        target: /home/docker-user/pdf-output
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka1:19092,kafka2:19092,kafka3:19092
-      - KAFKA_TOPIC=dc-msgs
+      - KAFKA_CONSUMER_TOPIC=dc-msgs
+      - KAFKA_PRODUCER_TOPIC=dc-events
       - KAFKA_GROUP_ID=channel-sender
+      - PDF_SERVICE_URL=http://make_pdf:3000/convert/html
 # Needed to debug stuff
       - RUST_BACKTRACE=full
-      - RUST_LOG=debug
+      - RUST_LOG=channel_sender=debug
     secrets:
       - sms_vendor_account_id
       - sms_vendor_token
@@ -27,6 +33,8 @@ services:
 
 networks:
   kafka:
+    external: true
+  digital-comms:
     external: true
 
 

@@ -174,6 +174,28 @@ async fn get_channels(
 }
 
 
+/// Get a list of all the channels that have been defined.
+#[get("/ui-services/v1/channels/{chan_name}")]
+async fn get_channel_by_name(
+    pool: web::Data<DbPool>,
+    chan_name: web::Path<String>,
+) -> Result<HttpResponse, Error> {
+
+    let chan_name = chan_name.into_inner();
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || channel_actions::find_channel_by_name(chan_name, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
+
+
 /// Create channels given an array of channels
 #[put("/ui-services/v1/channels")]
 async fn upsert_channels(
@@ -537,8 +559,10 @@ async fn main() -> std::io::Result<()> {
             .service(delete_correspondences)
 
             .service(get_channels)
+            .service(get_channel_by_name)
             .service(upsert_channels)
             .service(delete_channels)
+
             .service(get_languages)
             .service(upsert_languages)
             .service(delete_languages)
@@ -547,6 +571,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_unmapped_category_corr)
             .service(delete_mapped_category_corr)
             .service(upsert_category_correspondence_mappings)
+
             // .service(add_category_corr_mappings)
             // .service(get_unmapped_category_corr_mappings)
             // .service(get_template)

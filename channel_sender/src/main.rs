@@ -5,14 +5,15 @@ extern crate handlebars;
 extern crate reqwest;
 // #[macro_use] 
 extern crate hyper;
+#[macro_use]
+extern crate lazy_static;
+extern crate rand;
 
+use std::error::Error;
 use std::env;
 use futures::StreamExt;
-use env_logger::Builder;
-use log::LevelFilter;
-use chrono::{Local};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value};
+//use serde_json::{Value};
 
 use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig};
@@ -21,32 +22,28 @@ use rdkafka::consumer::{CommitMode, Consumer, ConsumerContext, Rebalance};
 use rdkafka::error::KafkaResult;
 use rdkafka::message::{Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
+use rdkafka::producer::{FutureProducer, FutureRecord};
+use rdkafka::message::OwnedHeaders;
 
-use std::io::Write;
-use std::collections::HashMap;
-use uuid::Uuid;
-use reqwest::Client;
+//use std::collections::HashMap;
+//use uuid::Uuid;
+//use reqwest::Client;
 use futures::executor::block_on;
 
-//use hyper::header::{Headers, Authorization, Bearer};
-
-//use std::io;
-//use std::fs::File;
 use std::fs;
 use std::path::Path;
 
 use handlebars::Handlebars;
-//use handlebars::template:: {TemplateElement, HelperTemplate, Parameter, DecoratorTemplate};
-//use handlebars::Path:: {Relative, Local as HBLocal};
-
-use hexdump;
 
 mod template;
 mod css_interface;
+mod email;
+mod sms;
+mod whatsapp;
+mod pdf;
 
 // Constants
-static SECRET_PATH: &str = "/run/secrets/";
-
+static SECRET_PATH: &str = "/run/secrets/"; // Dir where to get the docker swarm secrets from
 
 
 // Structure to hold a template id and channel to be used to send the DC through
@@ -58,7 +55,7 @@ struct TemplateChannel {
     channel: String,
 }
 
-// Structuer of the expected payload for a digital communication event received via Kafka
+// Structue of the expected payload for a digital communication event received via Kafka
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
 struct DC {
@@ -111,24 +108,227 @@ impl ConsumerContext for CustomContext {
 type LoggingConsumer = StreamConsumer<CustomContext>;
 
 
+
+
+// ****************************** NEW CODE ****************************************************
+fn create_consumer() -> LoggingConsumer {
+    let context = CustomContext;
+
+    // Initialize variables from environment
+    let bootstrap_servers = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
+
+    let consumer_topic = env::var("KAFKA_CONSUMER_TOPIC").expect("Could not find environment variable named KAFKA_CONSUMER_TOPIC. Without this variable being set the program will not work.");
+    let consumer_topics = [&*consumer_topic];
+
+    let group_id = env::var("KAFKA_GROUP_ID").expect("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
+    info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_CONSUMER_TOPIC={}, KAFKA_GROUP_ID={}", bootstrap_servers, consumer_topic, group_id);
+
+    let consumer: LoggingConsumer = ClientConfig::new()
+        .set("group.id", &*group_id)
+        .set("bootstrap.servers", &*bootstrap_servers)
+        .set("enable.partition.eof", "false")
+        .set("session.timeout.ms", "6000")
+        .set("enable.auto.commit", "true")
+        .set("auto.commit.interval.ms", "5000")
+        .set("enable.auto.offset.store", "false")
+        .create_with_context(context)
+        .expect("Consumer creation failed");
+
+    consumer
+        .subscribe(&consumer_topics.to_vec())
+        .expect("Can't subscribe to specified topics");
+
+    consumer
+}
+
+
+fn create_producer() -> FutureProducer {
+
+    // Initialize variables from environment
+    let bootstrap_servers = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
+
+    ClientConfig::new()
+        .set("bootstrap.servers", &*bootstrap_servers)
+        .set("queue.buffering.max.ms", "0") // Do not buffer
+        .create()
+        .expect("Producer creation failed")
+}
+
+
+/// Send an event recording the successful transmission of the digital comms msg to the kafka topic for further processing
+async fn send_event(producer: &FutureProducer, msg: Option<&[u8]>, key: Option<&[u8]>, topic: &String) -> Result<(), Error> {
+
+    let mut record = FutureRecord::to(topic);
+    if let Some(p) = msg {
+        record = record.payload(p);
+    }
+    if let Some(k) = key {
+        record = record.key(k);
+    }
+
+    // Send the message and block forever if the queue is full
+    // TODO determine what is the best strategy here, if block forever is not it
+    producer.send(record, -1i64).await
+}
+
+
+
+#[tokio::main]
+async fn main() {
+     env_logger::init();
+// setup_logger(true, matches.value_of("log-conf"));
+
+    // let (_, version) = get_rdkafka_version();
+    // info!("rd_kafka_version: {}", version);
+
+    // let input_topic = matches.value_of("input-topic").unwrap();
+    // let output_topics = matches
+    //     .values_of("output-topics")
+    //     .unwrap()
+    //     .collect::<Vec<&str>>();
+    // let brokers = matches.value_of("brokers").unwrap();
+    // let group_id = matches.value_of("group-id").unwrap();
+
+    let producer_topic = env::var("KAFKA_PRODUCER_TOPIC").expect("Could not find environment variable named KAFKA_PRODUCER_TOPIC. Without this variable being set the program will not work.");
+    info!("Environment variable KAFKA_PRODUCER_TOPIC={}", producer_topic);
+
+    let consumer = create_consumer();
+    let producer = create_producer();
+
+    let mut stream = consumer.start();
+
+    while let Some(message) = stream.next().await {
+        match message {
+            Err(e) => {
+                warn!("Kafka error: {}", e);
+            }
+            Ok(m) => {
+
+                // Process the message here
+                println!("Message received is: {:?}", m.payload());
+
+                // Send the event here
+                let result = send_event(&producer, m.payload(), m.key(), &producer_topic);
+
+
+
+                // Send a copy to the message to every output topic in parallel, and wait for the
+                // delivery report to be received.
+                // future::try_join_all(output_topics.iter().map(|output_topic| {
+                //     let mut record = FutureRecord::to(output_topic);
+                //     if let Some(p) = m.payload() {
+                //         record = record.payload(p);
+                //     }
+                //     if let Some(k) = m.key() {
+                //         record = record.key(k);
+                //     }
+                //     producer.send(record, 1000)
+                // }))
+                // .await
+                // .expect("Message delivery failed for some topic");
+                // Now that the message is completely processed, add it's position to the offset
+                // store. The actual offset will be committed every 5 seconds.
+                if let Err(e) = consumer.store_offset(&m) {
+                    warn!("Error while storing offset: {}", e);
+                }
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //************************************************************************
 async fn consume() {
     let context = CustomContext;
 
-    // Get the bootstrap servers and topic from the environment variables
+    // Initialize variables from environment
     let bootstrap_servers = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
-    let topic = env::var("KAFKA_TOPIC").expect("Could not find environment variable named KAFKA_TOPIC. Without this variable being set the program will not work.");
-    let topics = [&*topic];
+
+    let consumer_topic = env::var("KAFKA_CONSUMER_TOPIC").expect("Could not find environment variable named KAFKA_CONSUMER_TOPIC. Without this variable being set the program will not work.");
+    let consumer_topics = [&*consumer_topic];
+
+    let producer_topic = env::var("KAFKA_PRODUCER_TOPIC").expect("Could not find environment variable named KAFKA_PRODUCER_TOPIC. Without this variable being set the program will not work.");
+    let producer_topics = [&*producer_topic];
+
     let group_id = env::var("KAFKA_GROUP_ID").expect("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
-    info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_TOPIC={}, KAFKA_GROUP_ID={}", bootstrap_servers, topic, group_id);
+    info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_CONSUMER_TOPIC={}, , KAFKA_PRODUCER_TOPIC={}, KAFKA_GROUP_ID={}", bootstrap_servers, consumer_topic, producer_topic, group_id);
 
     // Get the secrets for the vendor credentials
     let sms_vendor_account_id = get_secret("sms_vendor_account_id");
     let sms_vendor_token = get_secret("sms_vendor_token");
     let email_vendor_token = get_secret("email_vendor_token");
 
+    // Get the PDF Server URL
+    let pdf_service_url = env::var("PDF_SERVICE_URL").expect("Could not find environment variable named PDF_SERVICE_URL. Without this variable being set the program will not work.");
 
-    // Rubbish
+
     let consumer: LoggingConsumer = ClientConfig::new()
         .set("group.id", &*group_id)
         .set("bootstrap.servers", &*bootstrap_servers)
@@ -139,7 +339,7 @@ async fn consume() {
         .expect("Consumer creation failed");
 
     consumer
-        .subscribe(&topics.to_vec())
+        .subscribe(&consumer_topics.to_vec())
         .expect("Can't subscribe to specified topics");
 
     info!("Starting kafka consumer");
@@ -166,7 +366,7 @@ async fn consume() {
                         info!("Payload contains DC: {:?}", msg);
 
                         // Process the digital communications request
-                        process_request(msg, &mut hb, &sms_vendor_account_id, &sms_vendor_token, &email_vendor_token);
+                        process_request(msg, &mut hb, &sms_vendor_account_id, &sms_vendor_token, &email_vendor_token, &pdf_service_url);
                         s
                     },
                     Some(Err(e)) => {
@@ -182,142 +382,12 @@ async fn consume() {
 
 
 //************************************************************************
-#[tokio::main]
-async fn main() {
-    env_logger::init();
-    // // Initialize the logger for stdout
-    // Builder::new()
-    // .format(|buf, record| {
-    //     writeln!(buf,
-    //         "{} [{}] - {}",
-    //         Local::now().format("%Y-%m-%dT%H:%M:%S"),
-    //         record.level(),
-    //         record.args()
-    //     )
-    // })
-    // .filter(None, LevelFilter::Info)
-    // .init();
+//#[tokio::main]
+// async fn main() {
+//     env_logger::init();
 
-
-    // let (version_n, version_s) = get_rdkafka_version();
-    // info!("rd_kafka_version: 0x{:08x}, {}", version_n, version_s);
-
-    // let topics = matches.values_of("topics").unwrap().collect::<Vec<&str>>();
-    // let brokers = matches.value_of("brokers").unwrap();
-    // let group_id = matches.value_of("group-id").unwrap();
-
-    consume().await
-}
-
-
-//************************************************************************
-async fn send_whatsapp(account_fields: &Value, whatsapp_content: String, vendor_acc_id: &String, vendor_token: &String) -> Result<(), Box<dyn std::error::Error>> {
-//    fn send_whatsapp() -> Result<(), Box<dyn std::error::Error>> {
-    
-    // Send a Whatsapp msg
-    let mut params = HashMap::new();
-    let whatsapp_to = format!("whatsapp:{}", account_fields["phone_mobile"]);
-    params.insert("To", whatsapp_to);
-    params.insert("From", "whatsapp:+14155238886".to_string());
-    params.insert("Body", whatsapp_content);
-    params.insert("StatusCallback", "http://destini.synology.me:50012/csc/webhooks/whatsapp".to_string());
-
-    let url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", vendor_acc_id);
-
-    let client = Client::new();
-    let res = client
-        .post(&url)
-        .basic_auth(vendor_acc_id, Some(vendor_token))
-        .form(&params)
-        .send()
-        .await
-        .unwrap();
-
-    let response_text = res.text().await.unwrap();
-    debug!("Response from send_sms reqwest: {}", response_text);
-
-    // TODO if the response status is not 200 then an error needs to be generated
-    // TODO need to deal with the errors that could come back from reqwest
-
-    Ok(())
-}
-
-
-//************************************************************************
-async fn send_sms(account_fields: &Value, sms_content: String, vendor_acc_id: &String, vendor_token: &String) -> Result<(), Box<dyn std::error::Error>> {
-
-    debug!("Starting to send_sms. account_fields: {:?}, sms_content: {:?}", account_fields, sms_content);
-
-
-    
-    // Send an SMS
-    let mut params = HashMap::new();
-    params.insert("To", account_fields["phone_mobile"].to_string());
-//    params.insert("From", "+14804053433".to_string());
-    params.insert("From", "+15005550006".to_string());
-    params.insert("Body", sms_content);
-    params.insert("StatusCallback", "http://destini.synology.me:50012/csc/webhooks/sms".to_string());
-    let url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", vendor_acc_id);
-    let client = reqwest::Client::new();
-    let res = client
-        .post(&url)
-        .basic_auth(vendor_acc_id, Some(vendor_token))
-        .form(&params)
-        .send()
-        .await
-        .unwrap();
-
-    let response_text = res.text().await.unwrap();
-    debug!("Response from send_sms reqwest: {}", response_text);
-
-    // TODO if the response status is not 200 then an error needs to be generated
-    // TODO need to deal with the errors that could come back from reqwest
-
-    Ok(())
-}
-
-
-//************************************************************************
-async fn send_email(account_fields: &Value, email_content: String, api_key: &String) -> Result<(), Box<dyn std::error::Error>> {
-
-    debug!("Starting to send_email. email_content: [{}]", email_content);
-
-    // Get the fields for the email
-    let email_to = &account_fields["email"].as_str().unwrap();
-    let email_from = &account_fields["email_from"].as_str().unwrap();
-
-    // TODO determine where the email subject is coming from in the final solution
-    let email_subject = format!("A message from - {}", account_fields["client_name"].as_str().unwrap());
-
-    // Create the body of the request
-    let filled_email_struct = format!(
-        r#"{{"personalizations": [{{"to": [{{"email": "{}"}}],"subject": "{}"}}],"from": {{"email": "{}"}},"content": [{{"type": "text/html","value": "{}"}}]}}"#, 
-        email_to, email_subject, email_from, email_content
-    );
-    debug!("filled_email_struct contains: [{}]", filled_email_struct);
-
-    let url = "https://api.sendgrid.com/v3/mail/send";
-
-    // TODO look into passing this in to increase performance, instead of building it each time
-    let client = reqwest::Client::new();
-    let res = client
-        .post(url)
-        .bearer_auth(api_key)
-        .header("Content-Type", "application/json")
-        .body(filled_email_struct)
-        .send()
-        .await
-        .unwrap();
-
-
-    // TODO if the response status is not 200 then an error needs to be generated
-    // TODO need to deal with the errors that could come back from reqwest
-    if !res.status().is_success() {
-        error!("Response from send_email reqwest was failure. Status: {}, Text: {}", res.status(), res.text().await.unwrap());
-    }
-
-    Ok(())
-}
+//     consume().await
+// }
 
 
 //************************************************************************
@@ -336,58 +406,15 @@ fn get_secret(name: &str) -> String {
 
 
 //************************************************************************
-fn send_pdf() -> Result<(), Box<dyn std::error::Error>> {
+fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &String, sms_vendor_token: &String, email_vendor_token: &String, pdf_service_url: &String) {
     
-    // Build request to send to the makepdf service
-    info!("Started conversion of pdf");
-    let url = format!("http://docker01:8083/convert/html");
-    
-    let form = reqwest::blocking::multipart::Form::new()
-        .text("x", "not used")
-        .file("files", "./index.html").unwrap();
+    debug!("In process_request");
 
-    let client = reqwest::blocking::Client::new();
-
-    let resp = client
-        .post(&url)
-        .multipart(form)
-        .send();
-    info!("Conversion complete, started file creation");
-
-    match resp {
-        Ok(mut r) => {
-            println!("success!");
-//            let mytext = r.text()?;
-
-
-            let filename = format!("./output/pdf-{}.pdf", Uuid::new_v4());
-            let path = Path::new(&filename);
-        
-            let mut file = std::fs::File::create(&path)?;
-            r.copy_to(&mut file)?;
-        
-            // match save_in_file(mytext) {
-            //     Ok(_) => Ok(()),
-            //     Err(e) => {println!("Error {}", e); Ok(())},
-            // }
-            Ok(())
-        },
-        Err(e) => Err(e),
-    };
-    info!("File creation complete");
-
-    Ok(())
-}
-
-
-//************************************************************************
-fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &String, sms_vendor_token: &String, email_vendor_token: &String) {
-    
     // For each account and channel template combination, send the communication
     for template_channel in &msg.template_channels {
 
         // Register the template
-        let template_file_name = format!("/templates/temp_{}_lang_{}_{}.html", template_channel.template_id, template_channel.language_id, template_channel.channel);
+        let template_file_name = format!("./templates/temp_{}_lang_{}_{}.html", template_channel.template_id, template_channel.language_id, template_channel.channel);
         let path = Path::new(&template_file_name);
         hb.register_template_file(&template_file_name, path).expect("Template registration error");
 
@@ -398,31 +425,31 @@ fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &St
 
         for account in &msg.accounts {
             
+            debug!("Process DC for account: {:?}", account);
+
             // Get the fields for the account
             let account_fields = css_interface::get_account_fields(&account, &template_fields);
 
             // Combine the template with the fields retrieved for the account
             let populated_template = hb.render(&template_file_name, &account_fields).expect("render error");
 
-            println!("=========================== Start hex dump ================================================");
-            hexdump::hexdump(populated_template.as_bytes());
-            println!("=========================== End hex dump ================================================");
-
-            debug!("The rendered template contains: [{}]", populated_template);
-
             // Send the digital communication for the account through the correct channel
+            debug!("Calling channel processing for: {:?}", &*template_channel.channel);
+
             let result = match &*template_channel.channel {
                 "email" => {
-                    block_on(send_email(&account_fields, populated_template, &email_vendor_token));
+                    block_on(email::send_email(&account_fields, populated_template, &email_vendor_token));
                 },
                 "sms" => {
-                    block_on(send_sms(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token));
+                    block_on(sms::send_sms(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token));
                 },
                 "pdf" => {
-                    send_pdf();
+                    debug!("Calling send_pdf");
+
+                    pdf::send_pdf(&account_fields, populated_template, &pdf_service_url);
                 },
                 "whatsapp" => {
-                    block_on(send_whatsapp(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token));
+                    block_on(whatsapp::send_whatsapp(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token));
                 },
                 ch => error!("Unknown channel specified in received msg. Channel found is: {}", ch),
             };

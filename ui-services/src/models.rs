@@ -48,7 +48,7 @@ pub struct Channel {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Insertable, QueryableByName)]
 #[table_name="channels"]
 pub struct NewChannel {
     pub channel_name: String,

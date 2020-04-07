@@ -78,14 +78,19 @@ pub fn find_unmapped_category_corrs (
     conn: &PgConnection,
 ) -> Result<Vec<models::Correspondence>, diesel::result::Error> {
 
+//    use crate::schema::corrs::dsl::*;
+    //use diesel::sql_query;
+
     let results = diesel::sql_query("
         SELECT * FROM corrs WHERE NOT EXISTS (
-             SELECT correspondence_id FROM category_mappings WHERE correspondence_id = corrs.correspondence_id
-        )"
+            SELECT correspondence_id FROM category_mappings WHERE correspondence_id = corrs.correspondence_id
+        ) ORDER BY correspondence_name"
     )
-        .order(correspondence_name.asc())
-        .load::<models::Correspondence>(conn)
+//        .order(correspondence_name.asc())
+//        .load::<models::Correspondence>(conn)
+        .get_results(conn)
         .expect("Query failed");
+    
     Ok(results)
 }
 

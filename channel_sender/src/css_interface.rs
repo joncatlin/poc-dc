@@ -1,8 +1,35 @@
+use rand::Rng;
 use serde_json::{Value};
-//use std::boxed;
-//use std::collections::HashMap;
-// use std::fs;
+use std::sync::Mutex;
+// use std::path::Path;
 // use std::error::Error;
+// use std::fs::File;
+// use std::io::{Read, Write};
+
+use std::fs;
+
+
+lazy_static! {
+    //            static ref DATA: Mutex<Vec<Value>> = Mutex::new(vec![v]);
+    static ref DATA: Mutex<Vec<Value>> = Mutex::new(vec![]);
+}
+    
+    
+fn main() {
+
+    let account = "Account1".to_string();
+    let fields = Vec::<String>::new();
+    let account_fields = get_account_fields (&account, &fields);
+    println!("value = {:?}", account_fields);
+
+    let email_to = &account_fields["email"].as_str().unwrap();
+    let email_from = &account_fields["email_from"].as_str().unwrap();
+    println!("email_to = {:?}", email_to);
+    println!("email_from = {:?}", email_from);
+
+}
+
+//static mut data_initialized: bool = false;
 
 //************************************************************************
 pub fn get_account_fields (account: &String, template_fields: &Vec<String>) -> Value {
@@ -10,55 +37,45 @@ pub fn get_account_fields (account: &String, template_fields: &Vec<String>) -> V
     // Call CSS to get a list of fields for a given account. In the future this would be a call to CSS
     // but for the POC this is a local call to get dummy data.
     let fields = css_get_account_fields (account, template_fields);
-    let v: Value = serde_json::from_str(&*fields).unwrap();
-    v
+    fields
 }
 
 
 //************************************************************************
-pub fn css_get_account_fields (_account: &String, _template_fields: &Vec<String>) -> String {
+pub fn css_get_account_fields (_account: &String, _template_fields: &Vec<String>) -> Value {
 
-    let data: String = String::from(r#"{
-        "id": 1,
-        "first_name": "Jon",
-        "last_name": "Catlin",
-        "email": "jonc@destini.com",
-        "gender": "m",
-        "address1": "5315 Portage Alley",
-        "address2": "",
-        "address3": "",
-        "city": "Washington",
-        "state": "District of Columbia",
-        "zip": "20051",
-        "accounts": [
-          {
-            "days_delinquent": 17,
-            "amount_due": 1852.83,
-            "account_number": "853095139-5"
-          },
-          {
-            "days_delinquent": 22,
-            "amount_due": 2468.48,
-            "account_number": "046270384-3"
-          },
-          {
-            "days_delinquent": 3,
-            "amount_due": 2023.51,
-            "account_number": "912733932-7"
-          },
-          {
-            "days_delinquent": 9,
-            "amount_due": 2264.79,
-            "account_number": "014258677-3"
-          }
-        ],
-        "currency": "£",
-        "client_id": "tt",
-        "client_name": "Thousand Trails",
-        "email_from": "digital-communications@concordservicing.com",
-        "phone_mobile": "+14805169974"
-    }"#);
+    // IGNORE THE FIELDS PASSED IN
 
-    data
+
+    if DATA.lock().unwrap().to_vec().len() == 0 {
+
+        // Read data from file for all the dummy CSS values
+        let file_contents = fs::read_to_string("./mock_data.json").expect("error on reading json data from file");
+
+        let mut array: Vec<Value> = serde_json::from_str(&file_contents).expect("");
+
+        DATA.lock().unwrap().append(&mut array);
+
+//        let v: Value = serde_json::from_str(&*fields).unwrap();
+
+//         // Save the date in the global reference
+//         lazy_static! {
+// //            static ref DATA: Mutex<Vec<Value>> = Mutex::new(vec![v]);
+//             static ref DATA: Mutex<Vec<Value>> = Mutex::new(array);
+//         }
+
+//        data_initialized = true;
+    }
+
+    // Randomly pick one of the accounts and pass it back
+    let mut rng = rand::thread_rng();
+    let length = DATA.lock().unwrap().to_vec().len()-1;
+    let index = rng.gen_range(0, length);
+
+    debug!("Index generated is: {} and length is: {}", index, length);
+
+    DATA.lock().unwrap().to_vec()[index].to_owned()
 }
+
+
 

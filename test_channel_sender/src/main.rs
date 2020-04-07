@@ -57,10 +57,24 @@ async fn produce() {
 
 
     // Create a DC msg as the payload
-    // let tc = TemplateChannel {template_id: 3, language_id: 2, channel: "sms".to_string()};
     let tc = TemplateChannel {template_id: 1, language_id: 2, channel: "email".to_string()};
-//    let a = vec!("account1".to_string(), "account2".to_string(), "account3".to_string(), "account4".to_string());
-    let a = vec!("account1".to_string());
+//    let tc = TemplateChannel {template_id: 1, language_id: 2, channel: "email".to_string()};
+//    let tc = TemplateChannel {template_id: 2, language_id: 1, channel: "email".to_string()};
+
+    // 50 Accounts !!!!!
+    let a = vec!(
+        "account11".to_string(), "account21".to_string(), "account31".to_string(), "account41".to_string(), "account51".to_string(),
+        "account12".to_string(), "account22".to_string(), "account32".to_string(), "account42".to_string(), "account52".to_string(),
+        "account13".to_string(), "account23".to_string(), "account33".to_string(), "account43".to_string(), "account53".to_string(),
+        "account14".to_string(), "account24".to_string(), "account34".to_string(), "account44".to_string(), "account54".to_string(),
+        "account15".to_string(), "account25".to_string(), "account35".to_string(), "account45".to_string(), "account55".to_string(),
+        "account16".to_string(), "account26".to_string(), "account36".to_string(), "account46".to_string(), "account56".to_string(),
+        "account17".to_string(), "account27".to_string(), "account37".to_string(), "account47".to_string(), "account57".to_string(),
+        "account18".to_string(), "account28".to_string(), "account38".to_string(), "account48".to_string(), "account58".to_string(),
+        "account19".to_string(), "account29".to_string(), "account39".to_string(), "account49".to_string(), "account59".to_string(),
+        "account10".to_string(), "account20".to_string(), "account30".to_string(), "account40".to_string(), "account50".to_string(),
+    );
+//    let a = vec!("account1".to_string());
     let dc = DC {id: "this is the id2".to_string(), template_channels: vec!(tc), accounts: a};            
     let dc_string = serde_json::to_string(&dc).unwrap();
 
@@ -88,46 +102,6 @@ async fn produce() {
     // And/or flush the producer before dropping it.
     producer.flush(Duration::from_secs(1));
 
-    // let producer: FutureProducer = ClientConfig::new()
-    //     .set("bootstrap.servers", &*bootstrap_servers)
-    //     .set("message.timeout.ms", "5000")
-    //     .create()
-    //     .expect("Producer creation error");
-
-//     // This loop is non blocking: all messages will be sent one after the other, without waiting
-//     // for the results.
-//     let futures = (0..5)
-//         .map(|i| {
-//             // // Create a DC msg as the payload
-//             // let tc = TemplateChannel {template_id: 1, channel: "email".to_string()};
-//             // let a = vec!("account1".to_string(), "account2".to_string(), "account3".to_string(), "account4".to_string());
-//             // let dc = DC {id: "this is the id".to_string(), template_channels: vec!(tc), accounts: a};            
-//             // let dc_string = serde_json::to_string(&dc).unwrap();
-
-//             // The send operation on the topic returns a future, that will be completed once the
-//             // result or failure from Kafka will be received.
-//             producer
-//                 .send(
-// //                    FutureRecord::to(&*topic)
-//                     FutureRecord::to(&*topic)
-// //                    .payload(&dc_string)
-//                         .payload("jon")
-//                         .key(&format!("Key {}", i))
-//                         .headers(OwnedHeaders::new().add("header_key", "header_value")),
-//                     0,
-//                 )
-//                 .map(move |delivery_status| {
-//                     // This will be executed once the result is received
-//                     info!("Delivery status for message {} received", i);
-//                     delivery_status
-//                 })
-//         })
-//         .collect::<Vec<_>>();
-
-//     // This loop will wait until all delivery statuses have been received received.
-//     for future in futures {
-//         info!("Future completed. Result: {:?}", future.await);
-//     }
 }
 
 #[tokio::main]
