@@ -1,7 +1,8 @@
+use crate::SEND_TO_VENDOR;
+
 use serde_json::{Value};
 use serde::{Serialize};
 use log::Level::Trace;
-use log::{debug, error, warn, trace, info, log_enabled};
 
 
 // The structures that comprise the message sent to the REST API for an email
@@ -78,8 +79,9 @@ pub async fn send_email(account_fields: &Value, email_content: String, api_key: 
     // TODO look into passing this in to increase performance, instead of building it each time
     let client = reqwest::Client::new();
 
-    // Only make the call to the vendor solution if we are not tracing. This allows testing volume without making the calls
-    if !log_enabled!(Trace) {
+    // Only make the call to the vendor solution if env var set correctly. This allows testing volume without making the calls
+    if *SEND_TO_VENDOR {
+
         let res = client
             .post(url)
             .bearer_auth(api_key)

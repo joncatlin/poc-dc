@@ -153,7 +153,7 @@ pub fn create_new_channel_configs(
             let new_channel_config = models::NewChannelConfig {
                 category_mappings_id: map.category_mappings_id,
                 channel_id: *chan,
-                permitted: None,
+                permitted: "".to_string(),
             };
             new_channel_configs.push(new_channel_config);
         } 

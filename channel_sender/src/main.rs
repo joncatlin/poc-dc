@@ -25,15 +25,15 @@ use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::message::OwnedHeaders;
 
-//use std::collections::HashMap;
-//use uuid::Uuid;
-//use reqwest::Client;
 use futures::executor::block_on;
 
 use std::fs;
 use std::path::Path;
 
 use handlebars::Handlebars;
+
+use log::{debug, error, warn, trace, info, log_enabled};
+
 
 mod template;
 mod css_interface;
@@ -44,6 +44,21 @@ mod pdf;
 
 // Constants
 static SECRET_PATH: &str = "/run/secrets/"; // Dir where to get the docker swarm secrets from
+
+// Create a glob var to control whether or not to send msgs to the vendors. This is used to performance test the code
+// without actually sending data to a vendor that would incur charges
+lazy_static! {
+//    static ref EXAMPLE: u8 = 42;
+// static ref SEND_TO_VENDOR: bool = true;
+    static ref SEND_TO_VENDOR: bool = env::var("SEND_TO_VENDOR").expect(
+        "Could not find environment variable named SEND_TO_VENDOR. Without this variable being set the program will not work.")
+        .parse().unwrap();
+    // static ref SEND_TO_VENDOR: String = env::var("SEND_TO_VENDOR").expect(
+    //     "Could not find environment variable named SEND_TO_VENDOR. Without this variable being set the program will not work.");
+    
+}
+
+
 
 
 // Structure to hold a template id and channel to be used to send the DC through
@@ -156,7 +171,9 @@ fn create_producer() -> FutureProducer {
 
 
 /// Send an event recording the successful transmission of the digital comms msg to the kafka topic for further processing
-async fn send_event(producer: &FutureProducer, msg: Option<&[u8]>, key: Option<&[u8]>, topic: &String) -> Result<(), Error> {
+async fn send_event(producer: &FutureProducer, msg: Option<&[u8]>, key: Option<&[u8]>, topic: &String) -> Result<(), Box<dyn std::error::Error>> {
+
+    debug!("In send_event");
 
     let mut record = FutureRecord::to(topic);
     if let Some(p) = msg {
@@ -168,7 +185,15 @@ async fn send_event(producer: &FutureProducer, msg: Option<&[u8]>, key: Option<&
 
     // Send the message and block forever if the queue is full
     // TODO determine what is the best strategy here, if block forever is not it
-    producer.send(record, -1i64).await
+    let result = producer.send(record, -1i64).await;
+
+    match result {
+        Ok(_s) => info!("Sent event to kafka topic"),
+        Err(e) => error!("Error sending event to kafka topic. Reason: {}", e),
+    }
+    debug!("Out send_event");
+
+    Ok(())
 }
 
 
@@ -176,24 +201,23 @@ async fn send_event(producer: &FutureProducer, msg: Option<&[u8]>, key: Option<&
 #[tokio::main]
 async fn main() {
      env_logger::init();
-// setup_logger(true, matches.value_of("log-conf"));
-
-    // let (_, version) = get_rdkafka_version();
-    // info!("rd_kafka_version: {}", version);
-
-    // let input_topic = matches.value_of("input-topic").unwrap();
-    // let output_topics = matches
-    //     .values_of("output-topics")
-    //     .unwrap()
-    //     .collect::<Vec<&str>>();
-    // let brokers = matches.value_of("brokers").unwrap();
-    // let group_id = matches.value_of("group-id").unwrap();
 
     let producer_topic = env::var("KAFKA_PRODUCER_TOPIC").expect("Could not find environment variable named KAFKA_PRODUCER_TOPIC. Without this variable being set the program will not work.");
     info!("Environment variable KAFKA_PRODUCER_TOPIC={}", producer_topic);
 
     let consumer = create_consumer();
     let producer = create_producer();
+
+    // Get the secrets for the vendor credentials
+    let sms_vendor_account_id = get_secret("sms_vendor_account_id");
+    let sms_vendor_token = get_secret("sms_vendor_token");
+    let email_vendor_token = get_secret("email_vendor_token");
+
+    // Get the PDF Server URL
+    let pdf_service_url = env::var("PDF_SERVICE_URL").expect("Could not find environment variable named PDF_SERVICE_URL. Without this variable being set the program will not work.");
+    
+    // Create the handlebars instance used to merge the templates and data
+    let mut hb = handlebars::Handlebars::new();
 
     let mut stream = consumer.start();
 
@@ -203,34 +227,30 @@ async fn main() {
                 warn!("Kafka error: {}", e);
             }
             Ok(m) => {
+                match m.payload_view::<str>() {
+                    None => {
+                        warn!("No payload in received message from kafka topic. Ignoring message with contents: {:?}", m);
+                        ""
+                    },
+                    Some(Ok(s)) => {
+                        // Process the message here
+                        // Get the JSON object from the payload
+                        let msg: DC = serde_json::from_str(s).unwrap();
+                        info!("Payload contains DC: {:?}", msg);
 
-                // Process the message here
-                println!("Message received is: {:?}", m.payload());
+                        // Process the digital communications request
+                        process_request(msg, &mut hb, &sms_vendor_account_id, &sms_vendor_token, &email_vendor_token, &pdf_service_url);
 
-                // Send the event here
-                let result = send_event(&producer, m.payload(), m.key(), &producer_topic);
-
-
-
-                // Send a copy to the message to every output topic in parallel, and wait for the
-                // delivery report to be received.
-                // future::try_join_all(output_topics.iter().map(|output_topic| {
-                //     let mut record = FutureRecord::to(output_topic);
-                //     if let Some(p) = m.payload() {
-                //         record = record.payload(p);
-                //     }
-                //     if let Some(k) = m.key() {
-                //         record = record.key(k);
-                //     }
-                //     producer.send(record, 1000)
-                // }))
-                // .await
-                // .expect("Message delivery failed for some topic");
-                // Now that the message is completely processed, add it's position to the offset
-                // store. The actual offset will be committed every 5 seconds.
-                if let Err(e) = consumer.store_offset(&m) {
-                    warn!("Error while storing offset: {}", e);
-                }
+                        // Send the event here
+                        let result = send_event(&producer, m.payload(), m.key(), &producer_topic);
+                        s
+                    },
+                    Some(Err(e)) => {
+                        warn!("Error while deserializing message payload: {:?}", e);
+                        ""
+                    },
+                };
+                consumer.commit_message(&m, CommitMode::Async).unwrap();
             }
         }
     }

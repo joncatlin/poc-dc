@@ -3,7 +3,7 @@ use diesel::sql_types::Integer;
 
 //mod models;
 use crate::models;
-use crate::channel_actions;
+//use crate::channel_actions;
 
 
 pub fn find_mapped_category_corrs (
@@ -15,7 +15,7 @@ pub fn find_mapped_category_corrs (
 
     // Get the mappings without the channel configs because cannot determine how to do that in Diesel. So split the getting of the
     // structures into two parts, the mappings first and then the channel configs associated with each mapping
-    let category_mappings = sql_query("
+    let category_mappings: Vec<models::CategoryMappings> = sql_query("
         SELECT 
             cm.category_mappings_id,
             cat.category_id,
@@ -30,7 +30,8 @@ pub fn find_mapped_category_corrs (
         WHERE cm.category_id = $1
     ")
         .bind::<Integer, _>(category_id)
-        .load::<models::CategoryMappings>(conn)
+        .get_results(conn)
+//        .load::<models::CategoryMappings>(conn)
         .expect("Error loading category to correspondence mapping");
 
     // Copy the mappings found into the final struct and at the same time get the channel_configs for each category mapping found
@@ -175,10 +176,6 @@ pub fn delete_channel_configs_using_category_mapping_id (
 
 
 
-
-
-
-
 /// Run query using Diesel to insert a new database row and return the result.
 pub fn upsert_new_category_mappings(
     upsert_list: &Vec<models::CategoryMappingsWithChannelConfig>,
@@ -205,13 +202,14 @@ pub fn upsert_new_category_mappings(
             };
 
             // Create the category mappings entry
-            let new_map: models::CategoryMappingQuery = diesel::insert_into(category_mappings)
+            let inserted_cat_map: Vec<models::CategoryMappingQuery> = diesel::insert_into(category_mappings)
                 .values(&new_cat_map)
-                .get_result(conn)
+                .get_results(conn)
+//                .execute(conn)
                 .expect("Error saving new post");
 
             // Create all of the channel configs for the category mapping
-            create_channel_configs (new_map.category_mappings_id, &conn);
+            create_channel_configs (inserted_cat_map[0].category_mappings_id, &cat_map.channel_config, &conn);
 
         } else {
             // Update for category_mappings
@@ -246,7 +244,8 @@ fn update_channel_configs (
     for chan_cfg in cfgs {
         debug!("Updating channel_configs: {:?}", chan_cfg);
         match diesel::update(channel_configs.filter(channel_config_id.eq(chan_cfg.channel_config_id)))
-            .set(permitted.eq(chan_cfg.permitted.as_ref()))
+//        .set(permitted.eq(chan_cfg.permitted.as_ref()))
+            .set(permitted.eq(chan_cfg.permitted.clone()))
             .execute(conn)
         {
             Ok(results) => debug!("Successful update into channel_configs. Result: {:?}", results),
@@ -258,20 +257,32 @@ fn update_channel_configs (
 /// Create a chennel config for each existing channel, for the category mapping id passed in
 fn create_channel_configs (
     cat_map_id: i32,
+    channel_cfgs: &Vec<models::ChannelConfig>,
     conn: &PgConnection
 ) 
 {
     use crate::schema::channel_configs::dsl::*;
 
-    let chans = channel_actions::find_channels(&conn).expect("Failed to get a list of the channels");
+    // let chans = channel_actions::find_channels(&conn).expect("Failed to get a list of the channels");
+
+
+    // let mut new_channel_configs = Vec::<models::NewChannelConfig>::new();
+    // for chan in chans {
+    //     let new_channel_config = models::NewChannelConfig {
+    //         category_mappings_id: cat_map_id,
+    //         channel_id: chan.channel_id,
+    //         permitted: None,
+    //     };
+    //     new_channel_configs.push(new_channel_config);
+    // }
 
 
     let mut new_channel_configs = Vec::<models::NewChannelConfig>::new();
-    for chan in chans {
+    for chan in channel_cfgs {
         let new_channel_config = models::NewChannelConfig {
             category_mappings_id: cat_map_id,
-            channel_id: chan.channel_id,
-            permitted: None,
+            channel_id: chan.channel.channel_id,
+            permitted: chan.permitted.clone(),
         };
         new_channel_configs.push(new_channel_config);
     }

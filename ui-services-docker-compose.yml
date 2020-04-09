@@ -9,7 +9,7 @@ services:
     environment:
       - DATABASE_URL=postgres://event_user:event_pwd@event-db:5432/events
       - RUST_BACKTRACE=full
-      - RUST_LOG=debug
+      - RUST_LOG=ui_services=debug
     networks:
       - event-db
     ports:

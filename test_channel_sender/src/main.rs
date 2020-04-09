@@ -15,6 +15,8 @@ use rdkafka::message::OwnedHeaders;
 use rdkafka::producer::{BaseProducer, BaseRecord};
 use std::time::Duration;
 
+use clap::{App, Arg};
+
 // Constants
 static ACCOUNT_ID: &str = "account_id";
 static TOKEN: &str = "token";
@@ -45,8 +47,30 @@ struct DC {
     accounts: Vec<String>,
 }
 
+fn get_accounts(num_batches: i32, num_msgs_per_batch: i32) -> Vec<Vec<String>> {
 
-async fn produce() {
+    // let num_batches = 100;
+    // let num_msgs_per_batch = 10;
+
+    let mut accounts = Vec::new();
+
+    for batch_num in 0..(num_batches) {
+
+        let mut batch = Vec::<String>::new();
+
+        for msg in 0..(num_msgs_per_batch) {
+            batch.push(format!("Account_{}", msg + (batch_num * num_msgs_per_batch)));
+        }
+
+        accounts.push(batch);
+    }
+
+    accounts
+}
+
+
+async fn produce(template_id: i32, language_id: i32, channel: &String, batches: i32, msgs_per_batch: i32) {
+
 
     // Get the bootstrap servers and topic from the environment variables
     let bootstrap_servers = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
@@ -56,47 +80,47 @@ async fn produce() {
     info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_TOPIC={}", bootstrap_servers, topic);
 
 
-    // Create a DC msg as the payload
-    let tc = TemplateChannel {template_id: 1, language_id: 2, channel: "email".to_string()};
-//    let tc = TemplateChannel {template_id: 1, language_id: 2, channel: "email".to_string()};
-//    let tc = TemplateChannel {template_id: 2, language_id: 1, channel: "email".to_string()};
-
-    // 50 Accounts !!!!!
-    let a = vec!(
-        "account11".to_string(), "account21".to_string(), "account31".to_string(), "account41".to_string(), "account51".to_string(),
-        "account12".to_string(), "account22".to_string(), "account32".to_string(), "account42".to_string(), "account52".to_string(),
-        "account13".to_string(), "account23".to_string(), "account33".to_string(), "account43".to_string(), "account53".to_string(),
-        "account14".to_string(), "account24".to_string(), "account34".to_string(), "account44".to_string(), "account54".to_string(),
-        "account15".to_string(), "account25".to_string(), "account35".to_string(), "account45".to_string(), "account55".to_string(),
-        "account16".to_string(), "account26".to_string(), "account36".to_string(), "account46".to_string(), "account56".to_string(),
-        "account17".to_string(), "account27".to_string(), "account37".to_string(), "account47".to_string(), "account57".to_string(),
-        "account18".to_string(), "account28".to_string(), "account38".to_string(), "account48".to_string(), "account58".to_string(),
-        "account19".to_string(), "account29".to_string(), "account39".to_string(), "account49".to_string(), "account59".to_string(),
-        "account10".to_string(), "account20".to_string(), "account30".to_string(), "account40".to_string(), "account50".to_string(),
-    );
-//    let a = vec!("account1".to_string());
-    let dc = DC {id: "this is the id2".to_string(), template_channels: vec!(tc), accounts: a};            
-    let dc_string = serde_json::to_string(&dc).unwrap();
-
-
+    // Create the producer
     let producer: BaseProducer = ClientConfig::new()
         .set("bootstrap.servers", &*bootstrap_servers)
         .set("message.timeout.ms", "5000")
         .create()
         .expect("Producer creation error");
 
-    info!("About to send payload: {:?}", dc_string);
-    
-    producer.send(
-        BaseRecord::to(&*topic)
-            .payload(&*dc_string)
-            .key(&format!("Key {}", "1"))
-            .headers(OwnedHeaders::new().add("header_key", "header_value"))
-        ).expect("Failed to enqueue");
+
+    // Create a DC msg as the payload
+//    let tc = TemplateChannel {template_id: 1, language_id: 2, channel: "email".to_string()};
+//    let tc = TemplateChannel {template_id: 2, language_id: 1, channel: "email".to_string()};
+
+    let account_batches = get_accounts( batches, msgs_per_batch);
+
+    info!("Got accounts: vec size is {}", account_batches.len());
+
+    for (index, ab) in account_batches.iter().enumerate() {
+
+        let tc = TemplateChannel {template_id: template_id, language_id: language_id, channel: channel.clone()};
+
+        let ident = format!("ID_{}", index);
+        let dc = DC {id: ident, template_channels: vec!(tc), accounts: ab.to_vec()};            
+        let dc_string = serde_json::to_string(&dc).unwrap();
+
+        info!("About to send payload: {:?}", dc_string);
+        producer.send(
+            BaseRecord::to(&*topic)
+                .payload(&*dc_string)
+                .key(&format!("Key {}", "1"))
+                .headers(OwnedHeaders::new().add("header_key", "header_value"))
+            ).expect("Failed to enqueue");
+        
+        info!("Send payload index: {}", index);
+
+    }
+
     
     // Poll at regular intervals to process all the asynchronous delivery events.
     for _ in 0..10 {
         producer.poll(Duration::from_millis(100));
+        info!("Polling producer");
     }
     
     // And/or flush the producer before dropping it.
@@ -107,18 +131,69 @@ async fn produce() {
 #[tokio::main]
 async fn main() {
 
-    // Initialize the logger for stdout
-    Builder::new()
-    .format(|buf, record| {
-        writeln!(buf,
-            "{} [{}] - {}",
-            Local::now().format("%Y-%m-%dT%H:%M:%S"),
-            record.level(),
-            record.args()
-        )
-    })
-    .filter(None, LevelFilter::Info)
-    .init();
+    env_logger::init();
 
-    produce().await;
+//template_id: 1, language_id: 2, channel: "email"
+
+
+    let matches = App::new("test-channel-sender")
+    .version(option_env!("CARGO_PKG_VERSION").unwrap_or(""))
+    .about("Creates messages designed to test the channel-sender app")
+    .arg(
+        Arg::with_name("template_id")
+            .short("t")
+            .long("template_id")
+            .help("The identifier of the template in the msg")
+            .takes_value(true)
+            .default_value("1"),
+    )
+    .arg(
+        Arg::with_name("language_id")
+            .long("l")
+            .help("The identifier of the language to use in the msg")
+            .takes_value(true)
+            .default_value("2"),
+    )
+    .arg(
+        Arg::with_name("channel")
+            .short("c")
+            .long("channel")
+            .help("The channel to use in the msg")
+            .takes_value(true)
+            .default_value("email"),
+    )
+    .arg(
+        Arg::with_name("num_msgs")
+            .short("n")
+            .long("num_msgs")
+            .help("The number of msgs to send")
+            .takes_value(true)
+            .default_value("1"),
+    )
+    .arg(
+        Arg::with_name("batches")
+            .short("b")
+            .long("batches")
+            .help("The number of batches of msgs to send")
+            .takes_value(true)
+            .default_value("1"),
+    )
+    .arg(
+        Arg::with_name("msgs_per_batch")
+            .short("m")
+            .long("msgs_per_batch")
+            .help("The number of msgs to send per batch")
+            .takes_value(true)
+            .default_value("1"),
+    )
+    .get_matches();
+
+
+    let template_id = matches.value_of("template_id").unwrap().parse::<i32>().unwrap();
+    let language_id = matches.value_of("language_id").unwrap().parse::<i32>().unwrap();
+    let channel = matches.value_of("channel").unwrap();
+    let batches = matches.value_of("batches").unwrap().parse::<i32>().unwrap();
+    let msgs_per_batch = matches.value_of("msgs_per_batch").unwrap().parse::<i32>().unwrap();
+
+    produce(template_id, language_id, &channel.to_string(), batches, msgs_per_batch).await;
 }

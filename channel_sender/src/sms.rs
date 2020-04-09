@@ -1,8 +1,9 @@
+use crate::SEND_TO_VENDOR;
+
 use html2text;
 use std::collections::HashMap;
 use serde_json::{Value};
 use log::Level::Trace;
-use log::{debug, error, warn, trace, info, log_enabled};
 
 
 //************************************************************************
@@ -22,8 +23,8 @@ pub async fn send_sms(account_fields: &Value, sms_content: String, vendor_acc_id
     let url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", vendor_acc_id);
 
     let client = reqwest::Client::new();
-    // Only make the call to the vendor solution if we are not tracing. This allows testing volume without making the calls
-    if !log_enabled!(Trace) {
+    // Only make the call to the vendor solution if env var set correctly. This allows testing volume without making the calls
+    if *SEND_TO_VENDOR {
 
         let res = client
             .post(&url)

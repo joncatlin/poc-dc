@@ -18,7 +18,7 @@ table! {
         category_mappings_id -> Int4,
         category_id -> Int4,
         correspondence_id -> Int4,
-        opt_out -> Nullable<Varchar>,
+        opt_out -> Varchar,
         retention_period -> Int4,
     }
 }
@@ -28,7 +28,7 @@ table! {
         channel_config_id -> Int4,
         category_mappings_id -> Int4,
         channel_id -> Int4,
-        permitted -> Nullable<Varchar>,
+        permitted -> Varchar,
     }
 }
 
@@ -43,6 +43,16 @@ table! {
     corrs (correspondence_id) {
         correspondence_id -> Int4,
         correspondence_name -> Varchar,
+    }
+}
+
+table! {
+    dpl (dpl_id) {
+        dpl_id -> Int4,
+        d -> Nullable<Varchar>,
+        p -> Nullable<Varchar>,
+        l -> Nullable<Varchar>,
+        msg -> Text,
     }
 }
 
@@ -84,6 +94,7 @@ allow_tables_to_appear_in_same_query!(
     channel_configs,
     channels,
     corrs,
+    dpl,
     event,
     languages,
     templates,

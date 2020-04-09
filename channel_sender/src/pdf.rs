@@ -1,12 +1,15 @@
+use crate::SEND_TO_VENDOR;
+
 use uuid::Uuid;
 use std::fs;
 use std::path::Path;
 use serde_json::{Value};
 use std::fs::File;
 use std::io::prelude::*;
+use log::Level::Trace;
 
 // Statics
-static temp_filename: &'static str = "./index.html";
+static TEMP_FILENAME: &'static str = "./index.html";
 
 
 
@@ -19,7 +22,7 @@ pub fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_url: &S
     // // Save the content into a file for the pdf service to use it
     // let temp_filename = "./index.html";
     // let temp_path = Path::new(&temp_filename);
-    let temp_path = Path::new(&temp_filename);
+    let temp_path = Path::new(&TEMP_FILENAME);
 
     let mut file = File::create(&temp_path).expect("Cannot create the temp file for processing the pdf");
 
@@ -37,27 +40,33 @@ pub fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_url: &S
 
     let client = reqwest::blocking::Client::new();
 
-    let resp = client
-        .post(pdf_service_url)
-        .multipart(form)
-        .send();
-        
-    info!("Conversion complete, started file creation");
+    // Only make the call to the vendor solution if env var set correctly. This allows testing volume without making the calls
+    if *SEND_TO_VENDOR {
 
-    match resp {
-        Ok(mut r) => {
-            let filename = format!("./pdf-output/pdf-{}.pdf", uuid);
-            let path = Path::new(&filename);
-        
-            let mut file = std::fs::File::create(&path)?;
-            r.copy_to(&mut file)?;
-        
-            Ok(())
-        },
-        Err(e) => Err(e),
-    };
-    info!("File creation complete");
+//    if !log_enabled!(Trace) {
 
+        let resp = client
+            .post(pdf_service_url)
+            .multipart(form)
+            .send();
+            
+        info!("Conversion complete, started file creation");
+
+        match resp {
+            Ok(mut r) => {
+                let filename = format!("./pdf-output/pdf-{}.pdf", uuid);
+                let path = Path::new(&filename);
+            
+                let mut file = std::fs::File::create(&path)?;
+                r.copy_to(&mut file)?;
+            
+                Ok(())
+            },
+            Err(e) => Err(e),
+        };
+        info!("File creation complete");
+
+    }
     Ok(())
 }
 

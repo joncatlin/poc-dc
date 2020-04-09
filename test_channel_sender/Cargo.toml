@@ -16,3 +16,4 @@ serde_derive = "1.0.104"
 rdkafka = { version = "0.23", features = ["cmake-build"] }
 tokio = { version = "0.2.0", default-features = false, features = ["macros"] }
 futures = "0.3.1"
+clap = "2.18.0"

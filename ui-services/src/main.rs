@@ -370,8 +370,21 @@ async fn delete_mapped_category_corr(
 #[put("/ui-services/v1/category-correspondence-mappings/mapped")]
 async fn upsert_category_correspondence_mappings(
     pool: web::Data<DbPool>,
+    // req: HttpRequest,
+    // body: web::Bytes,
     cat_maps: web::Json<Vec<models::CategoryMappingsWithChannelConfig>>,
 ) -> Result<HttpResponse, Error> {
+
+    // println!("********************************************************************************\n");
+    // println!("REQUEST: {:?}", req);
+    // println!("********************************************************************************\n");
+    // println!("BODY: {:#?}", &body);
+    // println!("********************************************************************************\n");
+
+//    let cat_maps = web::Json<Vec<models::CategoryMappingsWithChannelConfig>>
+
+
+
     let conn = pool.get().expect("couldn't get db connection from pool");
 
     // use web::block to offload blocking Diesel code without blocking server thread

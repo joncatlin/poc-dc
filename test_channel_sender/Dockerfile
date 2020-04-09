@@ -49,4 +49,5 @@ RUN chown myapp:myapp test_channel_sender
 
 USER myapp
 
-CMD ["./test_channel_sender"]
+ENTRYPOINT ["./test_channel_sender"]
+# CMD ["./test_channel_sender"]
