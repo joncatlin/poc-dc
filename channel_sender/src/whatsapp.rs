@@ -36,8 +36,11 @@ pub async fn send_whatsapp(account_fields: &Value, whatsapp_content: String, ven
             .await
             .unwrap();
 
-        let response_text = res.text().await.unwrap();
-        debug!("Response from send_sms reqwest: {}", response_text);
+        if !res.status().is_success() {
+            error!("Response from send_whatsapp reqwest was failure. Status: {}, Text: {}", res.status(), res.text().await.unwrap());
+        } else {
+            debug!("Response from send_whatsapp reqwest was success. Body: {}", res.text().await.unwrap());
+        }
     }
     // TODO if the response status is not 200 then an error needs to be generated
     // TODO need to deal with the errors that could come back from reqwest

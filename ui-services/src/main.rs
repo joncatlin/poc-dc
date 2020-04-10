@@ -6,7 +6,7 @@ extern crate chrono;
 #[macro_use]
 extern crate diesel;
 
-use actix_web::{get, middleware, post, put, delete, web, App, Error, HttpResponse, HttpServer};
+use actix_web::{get, middleware, post, put, delete, web, App, Error, HttpResponse, HttpServer, HttpRequest, FromRequest, error, };
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
@@ -370,20 +370,8 @@ async fn delete_mapped_category_corr(
 #[put("/ui-services/v1/category-correspondence-mappings/mapped")]
 async fn upsert_category_correspondence_mappings(
     pool: web::Data<DbPool>,
-    // req: HttpRequest,
-    // body: web::Bytes,
     cat_maps: web::Json<Vec<models::CategoryMappingsWithChannelConfig>>,
 ) -> Result<HttpResponse, Error> {
-
-    // println!("********************************************************************************\n");
-    // println!("REQUEST: {:?}", req);
-    // println!("********************************************************************************\n");
-    // println!("BODY: {:#?}", &body);
-    // println!("********************************************************************************\n");
-
-//    let cat_maps = web::Json<Vec<models::CategoryMappingsWithChannelConfig>>
-
-
 
     let conn = pool.get().expect("couldn't get db connection from pool");
 
@@ -398,8 +386,19 @@ async fn upsert_category_correspondence_mappings(
     Ok(HttpResponse::Ok().json(results))
 }
 
-
-
+// ***************** FUTURE IN CASE WE NEED THIS
+// /// This handler manually load request payload and parse json-rust
+// async fn index_mjsonrust(body: Bytes) -> Result<HttpResponse, Error> {
+//     // body is loaded, now we can deserialize json-rust
+//     let result = json::parse(std::str::from_utf8(&body).unwrap()); // return Result
+//     let injson: JsonValue = match result {
+//         Ok(v) => v,
+//         Err(e) => json::object! {"err" => e.to_string() },
+//     };
+//     Ok(HttpResponse::Ok()
+//         .content_type("application/json")
+//         .body(injson.dump()))
+// }
 
 
 
@@ -530,15 +529,22 @@ async fn add_templates(
 
 
 
+//***********************************************************************************
+fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error::Error {
+    use actix_web::error::JsonPayloadError;
 
-
-
-
-
-
-
-
-
+    let detail = err.to_string();
+    let resp = match &err {
+        JsonPayloadError::ContentType => {
+            HttpResponse::UnsupportedMediaType().body(detail)
+        }
+        JsonPayloadError::Deserialize(json_err) if json_err.is_data() => {
+            HttpResponse::UnprocessableEntity().body(detail)
+        }
+        _ => HttpResponse::BadRequest().body(detail),
+    };
+    error::InternalError::from_response(err, resp).into()
+}
 
 
 
@@ -564,9 +570,11 @@ async fn main() -> std::io::Result<()> {
             // set up DB pool to be used with web::Data<Pool> extractor
             .data(pool.clone())
             .wrap(middleware::Logger::default())
+
             .service(get_categories)
             .service(upsert_categories)
             .service(delete_categories)
+
             .service(get_correspondences)
             .service(upsert_correspondences)
             .service(delete_correspondences)
@@ -585,11 +593,53 @@ async fn main() -> std::io::Result<()> {
             .service(delete_mapped_category_corr)
             .service(upsert_category_correspondence_mappings)
 
-            // .service(add_category_corr_mappings)
-            // .service(get_unmapped_category_corr_mappings)
-            // .service(get_template)
-            // .service(get_templates)
-            // .service(add_templates)
+            
+            // .service(
+            //     web::resource("/ui-services/v1/categories")
+            //         // change json extractor configuration
+            //         .app_data(web::Json::<Vec<models::Category>>::configure(|cfg| {
+            //             cfg.limit(4096).error_handler(|err, _req| {cfg.error_handler(json_error_handler)})
+            //         }))
+            //         .route(web::put().to(upsert_categories))
+            // )
+ 
+            // .service(
+            //     web::resource("/ui-services/v1/categories")
+            //         .data(web::JsonConfig::default().limit(1024).error_handler(json_error_handler)) // <- limit size of the payload (resource level)
+            //         .route(web::put().to(upsert_categories)),
+            // )
+
+            // .service(
+            //     web::resource("/ui-services/v1/categories")
+            //         .data(web::JsonConfig::default().limit(1024).error_handler(json_error_handler)) // <- limit size of the payload (resource level)
+            //         .route(web::put().to(delete_categories)),
+            // )
+
+            // ************** Register Error Handler for all  the models used
+
+            .app_data(web::Json::<Vec<models::Category>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            .app_data(web::Json::<Vec<models::Correspondence>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            .app_data(web::Json::<Vec<models::Channel>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            .app_data(web::Json::<Vec<models::Language>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            .app_data(web::Json::<Vec<i32>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            .app_data(web::Json::<Vec<models::CategoryMappingsWithChannelConfig>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
     })
     .bind(&bind)?
     .run()

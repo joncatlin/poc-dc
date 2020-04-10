@@ -95,6 +95,8 @@ pub async fn send_email(account_fields: &Value, email_content: String, api_key: 
         // TODO need to deal with the errors that could come back from reqwest
         if !res.status().is_success() {
             error!("Response from send_email reqwest was failure. Status: {}, Text: {}", res.status(), res.text().await.unwrap());
+        } else {
+            debug!("Response from send_email reqwest was success. Body: {}", res.text().await.unwrap());
         }
     }
     

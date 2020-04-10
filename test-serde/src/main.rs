@@ -1,84 +1,38 @@
-#[macro_use]
-extern crate lazy_static;
-extern crate rand;
+use actix_web::web::Bytes;
+use std::str;
+use serde::{Deserialize};
 
-use rand::Rng;
-use serde_json::{Value};
-use std::sync::Mutex;
-// use std::path::Path;
-// use std::error::Error;
-// use std::fs::File;
-// use std::io::{Read, Write};
-
-use std::fs;
-
-
-lazy_static! {
-    //            static ref DATA: Mutex<Vec<Value>> = Mutex::new(vec![v]);
-    static ref DATA: Mutex<Vec<Value>> = Mutex::new(vec![]);
+#[derive(Deserialize, Debug)]
+struct Channel {
+    channel_id: i32,
 }
-    
-    
+
+
+static MY_STRING: &'static str = r#"{ "channel_id": 1 }"#;
+
+
+
 fn main() {
 
-    let account = "Account1".to_string();
-    let fields = Vec::<String>::new();
-    let account_fields = get_account_fields (&account, &fields);
-    println!("value = {:?}", account_fields);
+//    let my_string = MY_STRING.to_string();
 
-    let email_to = &account_fields["email"].as_str().unwrap();
-    let email_from = &account_fields["email_from"].as_str().unwrap();
-    println!("email_to = {:?}", email_to);
-    println!("email_from = {:?}", email_from);
+    let my_bytes = Bytes::from(r#"{ "channel_id": 1 }"#.as_bytes());
+    
+//    let my_string = my_bytes.to_vec().as_ptr();
 
-}
+    // let my_string = str::from_utf8(&my_bytes.to_ascii_lowercase()).expect("Failed to convert to utf8");
 
-//static mut data_initialized: bool = false;
+    // let my_array: Channel = serde_json::from_str(&my_string).expect("Failed to convert to Json");
 
-//************************************************************************
-pub fn get_account_fields (account: &String, template_fields: &Vec<String>) -> Value {
-
-    // Call CSS to get a list of fields for a given account. In the future this would be a call to CSS
-    // but for the POC this is a local call to get dummy data.
-    let fields = css_get_account_fields (account, template_fields);
-    fields
-}
+    println!("Bytes={:?}", my_bytes);
 
 
-//************************************************************************
-pub fn css_get_account_fields (_account: &String, _template_fields: &Vec<String>) -> Value {
+    let my_array: Channel = serde_json::from_str(
+        str::from_utf8(&my_bytes.to_ascii_lowercase()).expect("Failed to convert to utf8")
+    ).expect("Failed to convert to Json");
 
-    // IGNORE THE FIELDS PASSED IN
 
-
-    if DATA.lock().unwrap().to_vec().len() == 0 {
-
-        // Read data from file for all the dummy CSS values
-        let file_contents = fs::read_to_string("./mock_data.json").expect("error on reading json data from file");
-
-        let mut array: Vec<Value> = serde_json::from_str(&file_contents).expect("");
-
-        DATA.lock().unwrap().append(&mut array);
-
-//        let v: Value = serde_json::from_str(&*fields).unwrap();
-
-//         // Save the date in the global reference
-//         lazy_static! {
-// //            static ref DATA: Mutex<Vec<Value>> = Mutex::new(vec![v]);
-//             static ref DATA: Mutex<Vec<Value>> = Mutex::new(array);
-//         }
-
-//        data_initialized = true;
-    }
-
-    // Randomly pick one of the accounts and pass it back
-    let mut rng = rand::thread_rng();
-    let length = DATA.lock().unwrap().to_vec().len()-1;
-    let index = rng.gen_range(0, length);
-
-    println!("Index generated is: {} and length is: {}", index, length);
-
-    DATA.lock().unwrap().to_vec()[index].to_owned()
+    println!("Json is {:?}", my_array);
 }
 
 

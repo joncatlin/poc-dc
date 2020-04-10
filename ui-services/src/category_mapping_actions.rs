@@ -1,5 +1,7 @@
 use diesel::prelude::*;
 use diesel::sql_types::Integer;
+//use actix_web::{web};
+//use actix_web::web::Bytes;
 
 //mod models;
 use crate::models;
@@ -183,6 +185,22 @@ pub fn upsert_new_category_mappings(
 ) -> Result<Vec<models::CategoryMappingsWithChannelConfig>, diesel::result::Error> {
     use crate::schema::category_mappings::dsl::*;
 //    use crate::schema::channel_configs::dsl::*;
+
+
+    // // Output the raw data in the body of the request
+    // debug!("upsert_new_category_mappings Bytes={:?}", body);
+
+
+    // // Convert it to json for use in the rest of the code
+    // let upsert_list: &Vec<models::CategoryMappingsWithChannelConfig> = serde_json::from_str(
+    //     str::from_utf8(&body.to_ascii_lowercase()).expect("Failed to convert to utf8")
+    // ).expect("Failed to convert to Json");
+
+
+
+
+
+
 
     // What is an insert and what is an update?
     // Inserts for category_mappings are defined as a structure that has a -1 for category_mappings_id

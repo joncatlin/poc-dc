@@ -242,7 +242,7 @@ async fn main() {
                         process_request(msg, &mut hb, &sms_vendor_account_id, &sms_vendor_token, &email_vendor_token, &pdf_service_url);
 
                         // Send the event here
-                        let result = send_event(&producer, m.payload(), m.key(), &producer_topic);
+                        let result = send_event(&producer, m.payload(), m.key(), &producer_topic).await.expect("Failed to send event");
                         s
                     },
                     Some(Err(e)) => {

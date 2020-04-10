@@ -59,10 +59,10 @@ pub fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_url: &S
             
                 let mut file = std::fs::File::create(&path)?;
                 r.copy_to(&mut file)?;
-            
-                Ok(())
             },
-            Err(e) => Err(e),
+            Err(e) => {
+                error!("Response from send_sms reqwest was failure. Error: {}", e);
+            }            
         };
         info!("File creation complete");
 
