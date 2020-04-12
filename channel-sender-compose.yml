@@ -25,10 +25,10 @@ services:
       - PDF_SERVICE_URL=http://make_pdf:3000/convert/html
 # Needed to debug stuff
       - RUST_BACKTRACE=full
-      - RUST_LOG=channel_sender=info
+      - RUST_LOG=channel_sender=debug
 # SEND_TO_VENDOR toggles whether to send real msgs to the vendor or skip that action
 # Used during performance testing to not incur charges with vendors
-      - SEND_TO_VENDOR=false
+      - SEND_TO_VENDOR=true
     secrets:
       - sms_vendor_account_id
       - sms_vendor_token

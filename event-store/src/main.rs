@@ -5,11 +5,11 @@ extern crate diesel;
 
 use std::env;
 use futures::StreamExt;
-use env_logger::Builder;
-use log::LevelFilter;
+// use env_logger::Builder;
+// use log::LevelFilter;
 //use chrono::{Local, DateTime, ParseError, NaiveDateTime, Utc};
-use chrono::{Local};
-use std::io::Write;
+// use chrono::{Local};
+// use std::io::Write;
 use serde::{Deserialize};
 
 use self::models::*;
@@ -64,7 +64,7 @@ impl ConsumerContext for CustomContext {
 type LoggingConsumer = StreamConsumer<CustomContext>;
 
 //************************************************************************
-async fn consume_and_print() {
+async fn consume() {
     let context = CustomContext;
     let conn = establish_connection();
 
@@ -147,31 +147,11 @@ async fn consume_and_print() {
 #[tokio::main]
 async fn main() {
 
-    println!("Inside main");
-    
-    // Initialize the logger for stdout
-    Builder::new()
-    .format(|buf, record| {
-        writeln!(buf,
-            "{} [{}] - {}",
-            Local::now().format("%Y-%m-%dT%H:%M:%S"),
-            record.level(),
-            record.args()
-        )
-    })
-    .filter(None, LevelFilter::Info)
-    .init();
+    env_logger::init();
 
-    info!("Process starting");
+    info!("Event Store Process starting");
 
-    // let (version_n, version_s) = get_rdkafka_version();
-    // info!("rd_kafka_version: 0x{:08x}, {}", version_n, version_s);
-
-    // let topics = matches.values_of("topics").unwrap().collect::<Vec<&str>>();
-    // let brokers = matches.value_of("brokers").unwrap();
-    // let group_id = matches.value_of("group-id").unwrap();
-
-    consume_and_print().await
+    consume().await
 }
 
 

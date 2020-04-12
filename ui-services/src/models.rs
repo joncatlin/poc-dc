@@ -284,3 +284,61 @@ pub struct TemplateWithLanguage {
 // }
 
 
+// ******************************* CLIENT PREFERENCES *********************************
+#[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
+#[table_name="client_preferences"]
+#[primary_key(client_preferences_id)]
+pub struct ClientPreferences {
+
+    pub client_preferences_id:  i32,
+
+    #[diesel(embed)]
+    pub category: Category,
+
+    #[diesel(embed)]
+    pub correspondence: Correspondence,
+    
+    pub opt_out: String,
+    pub retention_period: i32,
+
+    pub developer: String,
+    pub project: String,
+    pub lender: String,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClientPreferencesQuery {
+
+    pub category_id: i32,
+    pub hierarchys: Vec<Hierarchy>,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Hierarchy {
+    pub developer: String,
+    pub project: String,
+    pub lender: String,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClientPreferencesWithChannelConfig {
+    pub client_preferences_id: i32,
+    
+    pub category: Category,
+
+    pub correspondence: Correspondence,
+    
+    pub opt_out: String,
+    pub retention_period: i32,
+
+    pub channel_config: Vec<ChannelConfig>,
+
+    pub developer: String,
+    pub project: String,
+    pub lender: String,
+}
+
+

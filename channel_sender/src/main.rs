@@ -23,7 +23,7 @@ use rdkafka::error::KafkaResult;
 use rdkafka::message::{Message};
 use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::producer::{FutureProducer, FutureRecord};
-use rdkafka::message::OwnedHeaders;
+//use rdkafka::message::OwnedHeaders;
 
 use futures::executor::block_on;
 
@@ -32,7 +32,8 @@ use std::path::Path;
 
 use handlebars::Handlebars;
 
-use log::{debug, error, warn, trace, info, log_enabled};
+use log::{debug, error, warn, info};
+use chrono::Utc;
 
 
 mod template;
@@ -85,7 +86,7 @@ struct DC {
 
 // TODO figure out how to share this structure across multiple components
 #[derive(Debug)]
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct MessageEvent {
     account_id: String,
     id: String,
@@ -94,6 +95,15 @@ struct MessageEvent {
     datetime_rfc2822: String,
     event_specific_data: String,
 }
+
+// Message Event Status. DO not use enum as the value could change from one end of the sender-receiver pair. Uses strings instead.
+const SENT: &str = "sent";
+const RECEIVED: &str = "received";
+const QUEUED: &str = "queued";
+const FAILED_RESEND: &str = "failed_resend";
+const FAILED_NO_RESEND: &str = "failed_no_resend";
+const OPENED: &str = "opened";
+const DELIVERED: &str = "delivered";
 
 
 
@@ -170,18 +180,14 @@ fn create_producer() -> FutureProducer {
 }
 
 
-/// Send an event recording the successful transmission of the digital comms msg to the kafka topic for further processing
-async fn send_event(producer: &FutureProducer, msg: Option<&[u8]>, key: Option<&[u8]>, topic: &String) -> Result<(), Box<dyn std::error::Error>> {
-
-    debug!("In send_event");
-
+/// Send an event to the kafka topic for further processing, this records the successful transmission of the digital comms msg 
+async fn send_event(producer: &FutureProducer, topic: &String, msg: MessageEvent
+) -> Result<(), Box<dyn std::error::Error>> {
+    
     let mut record = FutureRecord::to(topic);
-    if let Some(p) = msg {
-        record = record.payload(p);
-    }
-    if let Some(k) = key {
-        record = record.key(k);
-    }
+    record = record.key(&msg.account_id);
+    let payload = serde_json::to_string(&msg).unwrap();
+    record = record.payload(&payload);
 
     // Send the message and block forever if the queue is full
     // TODO determine what is the best strategy here, if block forever is not it
@@ -191,7 +197,6 @@ async fn send_event(producer: &FutureProducer, msg: Option<&[u8]>, key: Option<&
         Ok(_s) => info!("Sent event to kafka topic"),
         Err(e) => error!("Error sending event to kafka topic. Reason: {}", e),
     }
-    debug!("Out send_event");
 
     Ok(())
 }
@@ -219,6 +224,9 @@ async fn main() {
     // Create the handlebars instance used to merge the templates and data
     let mut hb = handlebars::Handlebars::new();
 
+    // Create the client used to make the rest calls to the comms vendors
+    let client = reqwest::Client::new();
+
     let mut stream = consumer.start();
 
     while let Some(message) = stream.next().await {
@@ -239,10 +247,8 @@ async fn main() {
                         info!("Payload contains DC: {:?}", msg);
 
                         // Process the digital communications request
-                        process_request(msg, &mut hb, &sms_vendor_account_id, &sms_vendor_token, &email_vendor_token, &pdf_service_url);
-
-                        // Send the event here
-                        let result = send_event(&producer, m.payload(), m.key(), &producer_topic).await.expect("Failed to send event");
+                        process_request(msg, &mut hb, &sms_vendor_account_id, &sms_vendor_token, &email_vendor_token, 
+                            &pdf_service_url, &client, &producer, &producer_topic);
                         s
                     },
                     Some(Err(e)) => {
@@ -324,81 +330,84 @@ async fn main() {
 
 
 
-//************************************************************************
-async fn consume() {
-    let context = CustomContext;
+// //************************************************************************
+// async fn consume() {
+//     let context = CustomContext;
 
-    // Initialize variables from environment
-    let bootstrap_servers = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
+//     // Initialize variables from environment
+//     let bootstrap_servers = env::var("KAFKA_BOOTSTRAP_SERVERS").expect("Could not find environment variable named KAFKA_BOOTSTRAP_SERVERS. Without this variable being set the program will not work.");
 
-    let consumer_topic = env::var("KAFKA_CONSUMER_TOPIC").expect("Could not find environment variable named KAFKA_CONSUMER_TOPIC. Without this variable being set the program will not work.");
-    let consumer_topics = [&*consumer_topic];
+//     let consumer_topic = env::var("KAFKA_CONSUMER_TOPIC").expect("Could not find environment variable named KAFKA_CONSUMER_TOPIC. Without this variable being set the program will not work.");
+//     let consumer_topics = [&*consumer_topic];
 
-    let producer_topic = env::var("KAFKA_PRODUCER_TOPIC").expect("Could not find environment variable named KAFKA_PRODUCER_TOPIC. Without this variable being set the program will not work.");
-    let producer_topics = [&*producer_topic];
+//     let producer_topic = env::var("KAFKA_PRODUCER_TOPIC").expect("Could not find environment variable named KAFKA_PRODUCER_TOPIC. Without this variable being set the program will not work.");
+//     let producer_topics = [&*producer_topic];
 
-    let group_id = env::var("KAFKA_GROUP_ID").expect("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
-    info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_CONSUMER_TOPIC={}, , KAFKA_PRODUCER_TOPIC={}, KAFKA_GROUP_ID={}", bootstrap_servers, consumer_topic, producer_topic, group_id);
+//     let group_id = env::var("KAFKA_GROUP_ID").expect("Could not find environment variable named KAFKA_GROUP_ID. Without this variable being set the program will not work.");
+//     info!("Environment variables KAFKA_BOOTSTRAP_SERVERS={}, KAFKA_CONSUMER_TOPIC={}, , KAFKA_PRODUCER_TOPIC={}, KAFKA_GROUP_ID={}", bootstrap_servers, consumer_topic, producer_topic, group_id);
 
-    // Get the secrets for the vendor credentials
-    let sms_vendor_account_id = get_secret("sms_vendor_account_id");
-    let sms_vendor_token = get_secret("sms_vendor_token");
-    let email_vendor_token = get_secret("email_vendor_token");
+//     // Get the secrets for the vendor credentials
+//     let sms_vendor_account_id = get_secret("sms_vendor_account_id");
+//     let sms_vendor_token = get_secret("sms_vendor_token");
+//     let email_vendor_token = get_secret("email_vendor_token");
 
-    // Get the PDF Server URL
-    let pdf_service_url = env::var("PDF_SERVICE_URL").expect("Could not find environment variable named PDF_SERVICE_URL. Without this variable being set the program will not work.");
+//     // Get the PDF Server URL
+//     let pdf_service_url = env::var("PDF_SERVICE_URL").expect("Could not find environment variable named PDF_SERVICE_URL. Without this variable being set the program will not work.");
 
 
-    let consumer: LoggingConsumer = ClientConfig::new()
-        .set("group.id", &*group_id)
-        .set("bootstrap.servers", &*bootstrap_servers)
-        .set("enable.partition.eof", "false")
-        .set("session.timeout.ms", "6000")
-        .set("enable.auto.commit", "true")
-        .create_with_context(context)
-        .expect("Consumer creation failed");
+//     let consumer: LoggingConsumer = ClientConfig::new()
+//         .set("group.id", &*group_id)
+//         .set("bootstrap.servers", &*bootstrap_servers)
+//         .set("enable.partition.eof", "false")
+//         .set("session.timeout.ms", "6000")
+//         .set("enable.auto.commit", "true")
+//         .create_with_context(context)
+//         .expect("Consumer creation failed");
 
-    consumer
-        .subscribe(&consumer_topics.to_vec())
-        .expect("Can't subscribe to specified topics");
+//     consumer
+//         .subscribe(&consumer_topics.to_vec())
+//         .expect("Can't subscribe to specified topics");
 
-    info!("Starting kafka consumer");
+//     info!("Starting kafka consumer");
 
-    // Create the handlebars instance used to merge the templates and data
-    let mut hb = handlebars::Handlebars::new();
+//     // Create the handlebars instance used to merge the templates and data
+//     let mut hb = handlebars::Handlebars::new();
 
-    // consumer.start() returns a stream. The stream can be used ot chain together expensive steps,
-    // such as complex computations on a thread pool or asynchronous IO.
-    let mut message_stream = consumer.start();
+//     // consumer.start() returns a stream. The stream can be used ot chain together expensive steps,
+//     // such as complex computations on a thread pool or asynchronous IO.
+//     let mut message_stream = consumer.start();
 
-    while let Some(message) = message_stream.next().await {
-        match message {
-            Err(e) => warn!("Kafka error: {}", e),
-            Ok(m) => {
-                match m.payload_view::<str>() {
-                    None => {
-                        warn!("No payload in received message from kafka topic. Ignoring message with contents: {:?}", m);
-                        ""
-                    },
-                    Some(Ok(s)) => {
-                        // Get the JSON object from the payload
-                        let msg: DC = serde_json::from_str(s).unwrap();
-                        info!("Payload contains DC: {:?}", msg);
+//     // Create the client used to send rest api calls
+//     let client = reqwest::Client::new();
 
-                        // Process the digital communications request
-                        process_request(msg, &mut hb, &sms_vendor_account_id, &sms_vendor_token, &email_vendor_token, &pdf_service_url);
-                        s
-                    },
-                    Some(Err(e)) => {
-                        warn!("Error while deserializing message payload: {:?}", e);
-                        ""
-                    },
-                };
-                consumer.commit_message(&m, CommitMode::Async).unwrap();
-            }
-        };
-    }
-}
+//     while let Some(message) = message_stream.next().await {
+//         match message {
+//             Err(e) => warn!("Kafka error: {}", e),
+//             Ok(m) => {
+//                 match m.payload_view::<str>() {
+//                     None => {
+//                         warn!("No payload in received message from kafka topic. Ignoring message with contents: {:?}", m);
+//                         ""
+//                     },
+//                     Some(Ok(s)) => {
+//                         // Get the JSON object from the payload
+//                         let msg: DC = serde_json::from_str(s).unwrap();
+//                         info!("Payload contains DC: {:?}", msg);
+
+//                         // Process the digital communications request
+//                         process_request(msg, &mut hb, &sms_vendor_account_id, &sms_vendor_token, &email_vendor_token, &pdf_service_url, &client);
+//                         s
+//                     },
+//                     Some(Err(e)) => {
+//                         warn!("Error while deserializing message payload: {:?}", e);
+//                         ""
+//                     },
+//                 };
+//                 consumer.commit_message(&m, CommitMode::Async).unwrap();
+//             }
+//         };
+//     }
+// }
 
 
 //************************************************************************
@@ -425,8 +434,20 @@ fn get_secret(name: &str) -> String {
 
 
 
+// fn return_result(error_str:String)
+// -> Result<String, Box<dyn std::error::Error>> {
+
+//     return Err(Box::new(error_str));
+//     Ok("It should not get this far".to_string())
+// }
+
+
+
 //************************************************************************
-fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &String, sms_vendor_token: &String, email_vendor_token: &String, pdf_service_url: &String) {
+fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &String, 
+    sms_vendor_token: &String, email_vendor_token: &String, pdf_service_url: &String,
+    client: &reqwest::Client, producer: &FutureProducer, producer_topic: &String
+)  -> Result<(), Box<dyn std::error::Error>> {
     
     debug!("In process_request");
 
@@ -456,23 +477,31 @@ fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &St
             // Send the digital communication for the account through the correct channel
             debug!("Calling channel processing for: {:?}", &*template_channel.channel);
 
+            // TODO. Determine how to get the event specific data back from the sending methods
             let result = match &*template_channel.channel {
-                "email" => {
-                    block_on(email::send_email(&account_fields, populated_template, &email_vendor_token));
-                },
-                "sms" => {
-                    block_on(sms::send_sms(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token));
-                },
-                "pdf" => {
-                    debug!("Calling send_pdf");
-
-                    pdf::send_pdf(&account_fields, populated_template, &pdf_service_url);
-                },
-                "whatsapp" => {
-                    block_on(whatsapp::send_whatsapp(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token));
-                },
-                ch => error!("Unknown channel specified in received msg. Channel found is: {}", ch),
+                "email" =>      block_on(email::send_email(&account_fields, populated_template, &email_vendor_token, client)),
+                "sms" =>        block_on(sms::send_sms(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token, client)),
+                "pdf" =>        block_on(pdf::send_pdf(&account_fields, populated_template, &pdf_service_url, client)),
+                "whatsapp" =>   block_on(whatsapp::send_whatsapp(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token, client)),
+                ch =>           Ok("ERROR UNKNOWN CHANNEL".to_string()),
+//                ch =>           Err(Box::new(Error("Unknown channel"))),
             };
+
+            if result.is_ok() {
+                let sent_msg_id = result.unwrap();
+                
+                // Generate and send an event that details the successful sending of a DC msg
+                let msg_event = MessageEvent {account_id: account.to_string(), id: sent_msg_id, channel: template_channel.channel.to_string(), status: SENT.to_string(),
+                    datetime_rfc2822: Utc::now().to_rfc2822(),
+                    event_specific_data: "".to_string(),
+                };
+//                let result = block_on(send_event(&producer, &producer_topic, msg_event).await.expect("Failed to send event"));
+                let result = block_on(send_event(&producer, &producer_topic, msg_event));
+
+            } else {
+                error!("Failed to send event to the vendors service, account_id: {}, channel: {}, reason: {}", account, 
+                    &*template_channel.channel, result.unwrap_err());
+            }
 
             // match result {
             //     Ok(()) => info!("Sent {} for account_id: {} using template named: {}", 
@@ -487,4 +516,6 @@ fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &St
         // Unregister the template
         hb.unregister_template(&template_file_name);
     }
+
+    Ok(())
 }

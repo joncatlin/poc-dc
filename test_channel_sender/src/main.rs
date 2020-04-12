@@ -2,10 +2,10 @@
 extern crate log; 
 extern crate env_logger;
 
-use env_logger::Builder;
-use log::LevelFilter;
-use chrono::{Local};
-use std::io::Write;
+// use env_logger::Builder;
+// use log::LevelFilter;
+// use chrono::{Local};
+// use std::io::Write;
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -16,12 +16,6 @@ use rdkafka::producer::{BaseProducer, BaseRecord};
 use std::time::Duration;
 
 use clap::{App, Arg};
-
-// Constants
-static ACCOUNT_ID: &str = "account_id";
-static TOKEN: &str = "token";
-static SECRET_PATH: &str = "/run/secrets/";
-
 
 // Structure to hold a template id and channel to be used to send the DC through
 #[derive(Debug)]
@@ -108,7 +102,7 @@ async fn produce(template_id: i32, language_id: i32, channel: &String, batches: 
         producer.send(
             BaseRecord::to(&*topic)
                 .payload(&*dc_string)
-                .key(&format!("Key {}", "1"))
+                .key(&format!("Key {}", index.to_string()))
                 .headers(OwnedHeaders::new().add("header_key", "header_value"))
             ).expect("Failed to enqueue");
         

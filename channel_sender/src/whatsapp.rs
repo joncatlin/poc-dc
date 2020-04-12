@@ -1,14 +1,15 @@
+use crate::SEND_TO_VENDOR;
+
 use std::collections::HashMap;
-use reqwest::Client;
+//use reqwest::Client;
 use serde_json::{Value};
-use log::Level::Trace;
-use log::{debug, error, warn, trace, info, log_enabled};
 
 
 
 //************************************************************************
-pub async fn send_whatsapp(account_fields: &Value, whatsapp_content: String, vendor_acc_id: &String, vendor_token: &String) -> 
-    Result<(), Box<dyn std::error::Error>> {
+pub async fn send_whatsapp(account_fields: &Value, whatsapp_content: String, vendor_acc_id: &String, 
+    vendor_token: &String, client: &reqwest::Client) -> 
+    Result<String, Box<dyn std::error::Error>> {
 
     // TODO ensure the to phone number is in the correct international format
 
@@ -23,29 +24,29 @@ pub async fn send_whatsapp(account_fields: &Value, whatsapp_content: String, ven
 
     let url = format!("https://api.twilio.com/2010-04-01/Accounts/{}/Messages.json", vendor_acc_id);
 
-    let client = reqwest::Client::new();
+//    let client = reqwest::Client::new();
 
     // Only make the call to the vendor solution if we are not tracing. This allows testing volume without making the calls
-    if !log_enabled!(Trace) {
+    if *SEND_TO_VENDOR {
 
-        let res = client
+        let mut res = client
             .post(&url)
             .basic_auth(vendor_acc_id, Some(vendor_token))
             .form(&params)
             .send()
-            .await
+//            .await
             .unwrap();
 
         if !res.status().is_success() {
-            error!("Response from send_whatsapp reqwest was failure. Status: {}, Text: {}", res.status(), res.text().await.unwrap());
+            error!("Response from send_whatsapp reqwest was failure. Status: {}, Text: {}", res.status(), res.text().unwrap());
         } else {
-            debug!("Response from send_whatsapp reqwest was success. Body: {}", res.text().await.unwrap());
+            debug!("Response from send_whatsapp reqwest was success. Body: {}", res.text().unwrap());
         }
     }
     // TODO if the response status is not 200 then an error needs to be generated
     // TODO need to deal with the errors that could come back from reqwest
-
-    Ok(())
+    // TODO get the message id and return it to the caller
+    Ok("".to_string())
 }
     
     

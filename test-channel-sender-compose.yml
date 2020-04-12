@@ -17,7 +17,7 @@ services:
       - RUST_BACKTRACE=full
       - RUST_LOG=debug
 
-    command: -b 100 -m 10 -c email
+    command: -b 2 -m 1 -c email
 
 networks:
   kafka:

@@ -12,6 +12,9 @@ services:
       - KAFKA_GROUP_ID=event_store
 #      - DATABASE_URL=postgressql://event_user:event_pwd@docker01:55432/events
       - DATABASE_URL=postgres://event_user:event_pwd@event-db:5432/events
+# Needed to debug stuff
+      - RUST_BACKTRACE=full
+      - RUST_LOG=channel_sender=debug
     networks:
       - kafka
       - event-db

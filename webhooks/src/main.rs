@@ -26,9 +26,21 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 * Data strcutures used
 */
 
-// The msg generated to describe the webhook call received
+// // The msg generated to describe the webhook call received
+// #[derive(Debug)]
+// #[derive(Serialize, Deserialize)]
+// struct MessageEvent {
+//     account_id: String,
+//     id: String,
+//     channel: String,
+//     status: String,
+//     datetime_rfc2822: String,
+//     event_specific_data: String,
+// }
+
+// TODO figure out how to share this structure across multiple components
 #[derive(Debug)]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct MessageEvent {
     account_id: String,
     id: String,
@@ -37,6 +49,16 @@ struct MessageEvent {
     datetime_rfc2822: String,
     event_specific_data: String,
 }
+
+// Message Event Status. DO not use enum as the value could change from one end of the sender-receiver pair. Uses strings instead.
+const SENT: &str = "sent";
+const RECEIVED: &str = "received";
+const QUEUED: &str = "queued";
+const FAILED_RESEND: &str = "failed_resend";
+const FAILED_NO_RESEND: &str = "failed_no_resend";
+const OPENED: &str = "opened";
+const DELIVERED: &str = "delivered";
+
 
 // The request object received for the SMS webhook
 #[allow(non_snake_case)]
@@ -282,7 +304,12 @@ fn create_email_event(v: serde_json::Value) -> MessageEvent {
 
     // Ensure the id is a string
     let id = match v.get("sg_message_id").unwrap().as_str() {
-        Some(s) => s, 
+        Some(s) =>  {
+            // The id has some stuff on the end of it separated by a dot. Take the first part and ditch the rest.
+            let split_vec: Vec<&str> = s.splitn(2,'.').collect();
+            let extracted_id = split_vec[0]; 
+            extracted_id
+        },
         None => {
             // Log that the id is not a string
             warn!("Received a event with an id that is not a string: [{}]. Defaulting id to empty string. Full message received: {:?}",
@@ -293,7 +320,9 @@ fn create_email_event(v: serde_json::Value) -> MessageEvent {
 
     // Convert the status  
     let status = match v.get("event").unwrap().as_str() {
-        Some(s) => s, 
+        Some(s) => {
+            s
+        }, 
         None => {
             // Log that the statis is not a string
             warn!("Received an event status with that is not a string: [{}]. Defaulting status to \"unknown\". Full message received: {:?}",

@@ -6,7 +6,7 @@ use std::path::Path;
 use serde_json::{Value};
 use std::fs::File;
 use std::io::prelude::*;
-use log::Level::Trace;
+use reqwest::multipart;
 
 // Statics
 static TEMP_FILENAME: &'static str = "./index.html";
@@ -14,7 +14,8 @@ static TEMP_FILENAME: &'static str = "./index.html";
 
 
 //************************************************************************
-pub fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_url: &String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_url: &String, client: &reqwest::Client)
+ -> Result<String, Box<dyn std::error::Error>> {
 
     debug!("In send_pdf. account_fields: {:?}, pdf_content: {:?}, pdf_service_url: {}", account_fields, pdf_content, pdf_service_url);
     let uuid = Uuid::new_v4();
@@ -34,25 +35,45 @@ pub fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_url: &S
     info!("Started conversion of pdf");
 //    let url = format!("http://docker01:8083/convert/html");
     
-    let form = reqwest::blocking::multipart::Form::new()
-        .text("x", "not used")
-        .file("files", "./index.html").unwrap();
 
-    let client = reqwest::blocking::Client::new();
+
+// let form = multipart::Form::new()
+//     // Adding just a simple text field...
+//     .text("username", "seanmonstar")
+//     // And a file...
+//     .file("photo", "/path/to/photo.png")?;
+
+
+
+
+
+
+
+
+//    let form = reqwest::blocking::multipart::Form::new()
+    let form = multipart::Form::new()
+        .text("x", "not used")
+        .file("files", "./index.html")
+//        .file_name("files", "./index.html")
+        .unwrap();
+
+//    let client = reqwest::blocking::Client::new();
 
     // Only make the call to the vendor solution if env var set correctly. This allows testing volume without making the calls
     if *SEND_TO_VENDOR {
 
 //    if !log_enabled!(Trace) {
 
-        let resp = client
+        let mut res = client
             .post(pdf_service_url)
             .multipart(form)
             .send();
+//            .await
+//            .unwrap();
             
         info!("Conversion complete, started file creation");
 
-        match resp {
+        match res {
             Ok(mut r) => {
                 let filename = format!("./pdf-output/pdf-{}.pdf", uuid);
                 let path = Path::new(&filename);
@@ -67,7 +88,8 @@ pub fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_url: &S
         info!("File creation complete");
 
     }
-    Ok(())
+    // TODO get the message id and return it to the caller
+    Ok("".to_string())
 }
 
 
