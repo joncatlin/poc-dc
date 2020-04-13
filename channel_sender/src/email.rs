@@ -1,5 +1,6 @@
 use crate::SEND_TO_VENDOR;
 
+use uuid::Uuid;
 use serde_json::{Value};
 use serde::{Serialize};
 
@@ -10,6 +11,7 @@ struct MessageBody {
   personalizations: Vec<Personalizations>,
   from: Email,
   content: Vec<Content>,
+  tracking_settings: TrackingSettings,
 }
 
 #[derive(Serialize)]
@@ -36,6 +38,34 @@ struct Content {
 }
 
 
+
+#[derive(Serialize)]
+struct TrackingSettings {
+    click_tracking: ClickTracking,
+    open_tracking: OpenTracking,
+}
+
+#[derive(Serialize)]
+struct ClickTracking {
+    enable: bool,
+    enable_text: bool,
+}
+
+#[derive(Serialize)]
+struct OpenTracking {
+    enable: bool,
+}
+
+
+
+
+
+
+
+
+
+
+
 //************************************************************************
 pub async fn send_email(account_fields: &Value, email_content: String, api_key: &String, client: &reqwest::Client) 
     -> Result<String, Box<dyn std::error::Error>> {
@@ -53,11 +83,18 @@ pub async fn send_email(account_fields: &Value, email_content: String, api_key: 
       subject: email_subject,
     });
 
+    let tracking_settings = TrackingSettings {
+        click_tracking: ClickTracking {enable: true, enable_text: false},
+        open_tracking: OpenTracking {enable: true},
+    };
+
     let msg = MessageBody {
       personalizations: ps,
       from: Email {email: email_from.to_string()},
       content: vec!(Content {r#type: "text/html".to_string(), value: email_content}),
+      tracking_settings: tracking_settings,
     };
+
 
     let json_msg = serde_json::to_string(&msg).expect("Failed to convert msg to json_msg");
 
@@ -99,6 +136,8 @@ pub async fn send_email(account_fields: &Value, email_content: String, api_key: 
             //     None => return Ok("NO MESSAGE ID RETURNED FROM API CALL".to_string()),
             // };
         }
+    } else {
+        return Ok(Uuid::new_v4().to_string())
     }
     
     Ok("NO MESSAGE ID RETURNED FROM API CALL".to_string())

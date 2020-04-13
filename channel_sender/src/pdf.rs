@@ -1,7 +1,7 @@
 use crate::SEND_TO_VENDOR;
 
 use uuid::Uuid;
-use std::fs;
+//use std::fs;
 use std::path::Path;
 use serde_json::{Value};
 use std::fs::File;
@@ -87,6 +87,8 @@ pub async fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_u
         };
         info!("File creation complete");
 
+    } else {
+        return Ok(Uuid::new_v4().to_string())
     }
     // TODO get the message id and return it to the caller
     Ok("".to_string())

@@ -9,7 +9,7 @@ extern crate hyper;
 extern crate lazy_static;
 extern crate rand;
 
-use std::error::Error;
+//use std::error::Error;
 use std::env;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 //use rdkafka::message::OwnedHeaders;
 
 use futures::executor::block_on;
-
+//use uuid::Uuid;
 use std::fs;
 use std::path::Path;
 

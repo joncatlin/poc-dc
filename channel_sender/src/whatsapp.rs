@@ -1,5 +1,6 @@
 use crate::SEND_TO_VENDOR;
 
+use uuid::Uuid;
 use std::collections::HashMap;
 //use reqwest::Client;
 use serde_json::{Value};
@@ -42,6 +43,8 @@ pub async fn send_whatsapp(account_fields: &Value, whatsapp_content: String, ven
         } else {
             debug!("Response from send_whatsapp reqwest was success. Body: {}", res.text().unwrap());
         }
+    } else {
+        return Ok(Uuid::new_v4().to_string())
     }
     // TODO if the response status is not 200 then an error needs to be generated
     // TODO need to deal with the errors that could come back from reqwest

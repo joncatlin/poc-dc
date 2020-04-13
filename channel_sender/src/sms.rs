@@ -1,5 +1,6 @@
 use crate::SEND_TO_VENDOR;
 
+use uuid::Uuid;
 use html2text;
 use std::collections::HashMap;
 use serde_json::{Value};
@@ -74,6 +75,8 @@ pub async fn send_sms(account_fields: &Value, sms_content: String, vendor_acc_id
             debug!("SMS msg id: {}", msg_id_struct.sid);
             return Ok(msg_id_struct.sid)
         }
+    } else {
+        return Ok(Uuid::new_v4().to_string())
     }
     // TODO if the response status is not 200 then an error needs to be generated
     // TODO need to deal with the errors that could come back from reqwest

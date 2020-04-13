@@ -26,6 +26,9 @@ use rdkafka::topic_partition_list::TopicPartitionList;
 mod models;
 mod schema;
 
+use diesel::result::{DatabaseErrorKind, Error};
+
+
 // TODO figure out how to share this structure across multiple components
 #[derive(Debug)]
 #[derive(Deserialize)]
@@ -189,9 +192,23 @@ fn insert_account (msg: &MessageEvent, conn: &PgConnection) -> Result<(), diesel
 
         let acc = Account { message_id: msg.id.to_owned(), channel: msg.channel.to_owned(), account_id: msg.account_id.to_owned() };
 
-        diesel::insert_into(account)
+        match diesel::insert_into(account) 
             .values(&acc)
-            .execute(conn)?;
+            .execute(conn) {
+                Ok(s) => debug!("Insert successful. Account: {:?}", acc),
+                Err(e) => {
+                    match e {
+                        Error::DatabaseError  => {
+                            // Ignore this as it could be legitimate due to a service restart or the vendor sending duplicate updates
+                            return Ok(())
+                        },
+                        _ => return Err(e),
+                    // if e == Error::DatabaseError::DatabaseErrorKind::UniqueViolation {
+                    //     // Ignore it as it could be a duplicate caused by various conditions
+                    //     return Ok(())
+                }
+            }
+        }
         
         return Ok(());
     }
@@ -232,3 +249,4 @@ fn insert_event (msg: &MessageEvent, conn: &PgConnection)   -> Result<(), diesel
 }
 
 
+// Rubbish
