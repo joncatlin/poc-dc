@@ -47,10 +47,16 @@ RUN apk add libpq
 EXPOSE 8080
 
 # Create user
-RUN addgroup -g 1000 myapp
-RUN adduser -D -s /bin/sh -u 1000 -G myapp myapp
+RUN addgroup -g 1000 docker-user
+RUN adduser -D -s /bin/sh -u 1000 -G docker-user docker-user
 
-WORKDIR /home/ui-services/bin/
+# RUN chown myapp:myapp channel_sender
+# RUN chown myapp:myapp *.json
+
+USER docker-user
+
+WORKDIR /home/docker-user
+RUN pwd
 
 # Copy the built executable
 COPY --from=cargo-build /usr/src/ui-services/target/x86_64-unknown-linux-musl/release/ui-services .
@@ -58,11 +64,18 @@ COPY --from=cargo-build /usr/src/ui-services/target/x86_64-unknown-linux-musl/re
 # Copy the environment file for the DB URL
 COPY .env .
 
-RUN chown myapp:myapp ui-services
-RUN chown myapp:myapp .env
+USER root
 
-USER myapp
+RUN chown docker-user:docker-user ui-services
+RUN chown docker-user:docker-user .env
 
+USER docker-user
+
+# Create a volume for the template temp directory where files are uploaded 
+RUN mkdir ./template_temp
+VOLUME ["/home/docker-user/template_temp"]
+
+RUN ls -la
 CMD ["./ui-services"]
 
 
@@ -75,29 +88,35 @@ CMD ["./ui-services"]
 
 
 
+# # Old code that has a permission problem with creating the dir tempalte_temp
+# FROM alpine:latest
 
-
-
-
-
-
-
-
-
-# # This works
-# FROM rust:1.41
-
-# RUN apt update -yqq && apt install -yqq cmake g++
-
-# COPY ./ /ui-services
-# WORKDIR /ui-services
-# RUN rm .env && ls -l
-
-# RUN cargo clean
-# RUN RUSTFLAGS="-C target-cpu=native" cargo build --release
+# # Add the postgres driver
+# RUN apk update
+# RUN apk add libpq
 
 # EXPOSE 8080
 
-# CMD ./target/release/ui-services
+# # Create user
+# RUN addgroup -g 1000 docker-user
+# #RUN adduser -D -s /bin/sh -u 1000 -G docker-user
+# RUN adduser -D -s /bin/sh -u 1000 -G docker-user docker-user
 
+# USER docker-user
 
+# WORKDIR /home/ui-services
+
+# # Copy the built executable
+# COPY --from=cargo-build /usr/src/ui-services/target/x86_64-unknown-linux-musl/release/ui-services .
+
+# # Copy the environment file for the DB URL
+# COPY .env .
+
+# # RUN chown myapp:myapp ui-services
+# # RUN chown myapp:myapp .env
+
+# # Create a volume for the template temp directory where files are uploaded 
+# RUN mkdir ./template_temp
+# VOLUME ["/home/docker-user/template_temp"]
+
+# CMD ["./ui-services"]

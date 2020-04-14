@@ -2,27 +2,30 @@
 <html lang="en">
   <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <title>Example of print layout</title>
+    <title>Example of email layout</title>
     <script src="https://cdn.ckeditor.com/ckeditor5/16.0.0/inline/ckeditor.js"></script>
     <link rel="stylesheet" type="text/css" href="./template1.css">
   </head>
   <body>
-    <p>This is the email template</p>
+    <p>This is a TEST of the Dgital Communications Initative. You are receiving this email as par tof testing the DC POC.</p>
+    <p>This is an example of an email template. It uses Handlebars to populate the template with </p>
     <div id="page_doc">
-      <div id="logo"> <img src="./logos/{{client_id}}.png" alt="{{client_id}} logo"
-          class="contain"> </div>
-      <div id="from">
-        <p>From address</p>
+      <p>This is an example of a logo from the public internet (my brothers website).</p>
+      <div id="logo"> 
+          <img src="https://www.manorfarmnurseries.com/wp-content/themes/yootheme/cache/HomePage-b4d85cc4.jpeg">
       </div>
       <div id="to">
-        <p>{{first_name}} {{last_name}} <br>
-          {{address1}} <br>
-          {{address2}} <br>
-          {{address3}} <br>
-          {{city}} <br>
-          {{state}} {{zip}} </p>
+        <p> This next section takes data from simulated book marks for first name, last name, address etc.</p>
+        <p>First name: {{first_name}} <br>
+        Last name: {{last_name}} <br>
+        Address1: {{address1}} <br>
+        Address2: {{address2}} <br>
+        Address3: {{address3}} <br>
+        City: {{city}} <br>
+        State: {{state}} Zip: {{zip}} </p>
       </div>
       <div id="main">
+        <p>This next section demonstrates decision capabilities in handlebars to display text based on gender of customer</p>
         <p>Dear {{#if (eq gender "m")}}Mr{{else}}Mrs{{/if}} {{last_name}} thank
           you for being a valued customer of ours. </p>
         <p>We would like to extend this wonderful offer to you. Please go to our

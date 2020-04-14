@@ -35,6 +35,7 @@ use handlebars::Handlebars;
 use log::{debug, error, warn, info};
 use chrono::Utc;
 
+// Remove this comment
 
 mod template;
 mod css_interface;

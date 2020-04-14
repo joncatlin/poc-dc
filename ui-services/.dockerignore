@@ -4,5 +4,6 @@
 
 # ignore any of the local build components
 ./target/**
-./vendor/**
+#./vendor/**
+
 README.md

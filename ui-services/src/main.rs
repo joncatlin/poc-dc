@@ -1,5 +1,5 @@
 #[macro_use]
-extern crate log; 
+extern crate log;
 extern crate env_logger;
 extern crate chrono;
 
@@ -22,6 +22,13 @@ mod schema;
 
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
+
+use std::io::Write;
+
+use actix_multipart::Multipart;
+//use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer};
+use futures::{StreamExt, TryStreamExt};
+
 
 /*
 ************************* CATEGORIES ***********************************************************
@@ -342,7 +349,7 @@ async fn get_unmapped_category_corr(
 
     Ok(HttpResponse::Ok().json(results))
 }
- 
+
 
 /// Delete category correspondence mappings given a category id
 #[delete("/ui-services/v1/category-correspondence-mappings/mapped/{cat_id}")]
@@ -443,7 +450,7 @@ async fn upsert_category_correspondence_mappings(
 //     cats: web::Json<Vec<models::NewCategoryMapping>>,
 // ) -> Result<HttpResponse, Error> {
 //     let conn = pool.get().expect("couldn't get db connection from pool");
-    
+
 
 //     // use web::block to offload blocking Diesel code without blocking server thread
 //     let results = web::block(move || category_mapping_actions::insert_new_category_mappings(&cats, &conn))
@@ -511,7 +518,7 @@ async fn add_templates(
     objs: web::Json<Vec<models::NewTemplate>>,
 ) -> Result<HttpResponse, Error> {
     let conn = pool.get().expect("couldn't get db connection from pool");
-    
+
 
     // use web::block to offload blocking Diesel code without blocking server thread
     let results = web::block(move || template_actions::insert_templates(&objs, &conn))
@@ -593,7 +600,9 @@ async fn main() -> std::io::Result<()> {
             .service(delete_mapped_category_corr)
             .service(upsert_category_correspondence_mappings)
 
-            
+            .service(upload_template)
+            .service(save_template)
+
             // .service(
             //     web::resource("/ui-services/v1/categories")
             //         // change json extractor configuration
@@ -602,7 +611,7 @@ async fn main() -> std::io::Result<()> {
             //         }))
             //         .route(web::put().to(upsert_categories))
             // )
- 
+
             // .service(
             //     web::resource("/ui-services/v1/categories")
             //         .data(web::JsonConfig::default().limit(1024).error_handler(json_error_handler)) // <- limit size of the payload (resource level)
@@ -645,3 +654,84 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// TODO. Upload the file not using the filenme in the form, but use a different mechanism
+// that cannot be guessed by the uploader
+// TODO. Ensure the file permissions are correct
+// TODO. Once complete the file should be moved from the directory to its final location with the correct name
+#[post("/ui-services/v1/templates/file-upload")]
+async fn save_template(mut payload: Multipart) -> Result<HttpResponse, Error> {
+    debug!("In save_template");
+    
+    // iterate over multipart stream
+    while let Ok(Some(mut field)) = payload.try_next().await {
+        let content_type = field.content_disposition().unwrap();
+        let filename = content_type.get_filename().unwrap();
+        let filepath = format!("./template_temp/{}", filename);
+        // File::create is blocking operation, use threadpool
+        let mut f = web::block(|| std::fs::File::create(filepath))
+            .await
+            .unwrap();
+        // Field in turn is stream of *Bytes* object
+        while let Some(chunk) = field.next().await {
+            let data = chunk.unwrap();
+            // filesystem operations are blocking, we have to use threadpool
+            f = web::block(move || f.write_all(&data).map(|_| f)).await?;
+        }
+    }
+    Ok(HttpResponse::Ok().into())
+}
+
+
+#[get("/ui-services/v1/templates/file-upload")]
+fn upload_template() -> HttpResponse {
+    let html = r#"<html>
+        <head><title>Upload Test</title></head>
+        <body>
+            <form target="/ui-services/v1/templates/file-upload" method="post" enctype="multipart/form-data">
+                <input type="file" multiple name="file"/>
+                <input type="submit" value="Submit"></button>
+            </form>
+        </body>
+    </html>"#;
+
+    HttpResponse::Ok().body(html)
+}
+
+// #[actix_rt::main]
+// async fn main() -> std::io::Result<()> {
+//     std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
+//     std::fs::create_dir_all("./tmp").unwrap();
+
+//     let ip = "0.0.0.0:3000";
+
+//     HttpServer::new(|| {
+//         App::new().wrap(middleware::Logger::default()).service(
+//             web::resource("/")
+//                 .route(web::get().to(index))
+//                 .route(web::post().to(save_file)),
+//         )
+//     })
+//     .bind(ip)?
+//     .run()
+//     .await
+// }

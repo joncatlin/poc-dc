@@ -274,37 +274,27 @@ pub struct TemplateWithLanguage {
 }
 
 
-// // EMBEDDED structs. These are structs referenced in other models
-// // Languages struct for quesrying templates
-// #[derive(Debug, Clone, Serialize, QueryableByName)]
-// #[table_name="languages"]
-// pub struct EmbeddedLanguage {
-//     pub language_id: i32,
-//     pub language_name: String,
-// }
+// // ******************************* CLIENT PREFERENCES *********************************
+// #[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
+// #[table_name="client_preferences"]
+// #[primary_key(client_preferences_id)]
+// pub struct ClientPreferences {
 
+//     pub client_preferences_id:  i32,
 
-// ******************************* CLIENT PREFERENCES *********************************
-#[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
-#[table_name="client_preferences"]
-#[primary_key(client_preferences_id)]
-pub struct ClientPreferences {
+//     #[diesel(embed)]
+//     pub category: Category,
 
-    pub client_preferences_id:  i32,
-
-    #[diesel(embed)]
-    pub category: Category,
-
-    #[diesel(embed)]
-    pub correspondence: Correspondence,
+//     #[diesel(embed)]
+//     pub correspondence: Correspondence,
     
-    pub opt_out: String,
-    pub retention_period: i32,
+//     pub opt_out: String,
+//     pub retention_period: i32,
 
-    pub developer: String,
-    pub project: String,
-    pub lender: String,
-}
+//     pub developer: String,
+//     pub project: String,
+//     pub lender: String,
+// }
 
 
 #[derive(Debug, Serialize, Deserialize)]
