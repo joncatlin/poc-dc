@@ -50,7 +50,7 @@ pub fn css_get_account_fields (_account: &String, _template_fields: &Vec<String>
     if DATA.lock().unwrap().to_vec().len() == 0 {
 
         // Read data from file for all the dummy CSS values
-        let file_contents = fs::read_to_string("./mock_data.json").expect("error on reading json data from file");
+        let file_contents = fs::read_to_string("./test-data/mock_data.json").expect("error on reading json data from file");
 
         let mut array: Vec<Value> = serde_json::from_str(&file_contents).expect("");
 

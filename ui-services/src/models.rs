@@ -7,6 +7,8 @@ use crate::schema::templates;
 use crate::schema::corrs;
 use crate::schema::category_mappings;
 use crate::schema::channel_configs;
+use crate::schema::client_preferences;
+use crate::schema::dummy_client_preferences;
 
 // Categories
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, QueryableByName, Insertable, Identifiable, AsChangeset)]
@@ -274,34 +276,38 @@ pub struct TemplateWithLanguage {
 }
 
 
-// // ******************************* CLIENT PREFERENCES *********************************
-// #[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
-// #[table_name="client_preferences"]
-// #[primary_key(client_preferences_id)]
-// pub struct ClientPreferences {
+// ******************************* CLIENT PREFERENCES *********************************
+#[derive(Debug, Clone, Serialize, Deserialize, QueryableByName, Identifiable)]
+#[table_name="dummy_client_preferences"]
+#[primary_key(client_preferences_id)]
+pub struct ClientPreferences {
 
-//     pub client_preferences_id:  i32,
+    pub client_preferences_id:  i32,
 
-//     #[diesel(embed)]
-//     pub category: Category,
-
-//     #[diesel(embed)]
-//     pub correspondence: Correspondence,
+    // #[diesel(embed)]
+    // pub category: Category,
+    pub category_id: i32,
+  
+    // #[diesel(embed)]
+    // pub correspondence: Correspondence,
+    pub correspondence_id: i32,
     
-//     pub opt_out: String,
-//     pub retention_period: i32,
-
-//     pub developer: String,
-//     pub project: String,
-//     pub lender: String,
-// }
+    pub opt_out: String,
+    pub selected_opt_out: String,
+    pub retention_period: i32,
+    pub selected_retention_period: i32,
+ 
+    pub developer: String,
+    pub project: String,
+    pub lender: String,
+}
 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientPreferencesQuery {
-
-    pub category_id: i32,
     pub hierarchys: Vec<Hierarchy>,
+    pub categories: Vec<i32>,
+    pub correspondences: Vec<i32>,
 }
 
 
@@ -329,6 +335,20 @@ pub struct ClientPreferencesWithChannelConfig {
     pub developer: String,
     pub project: String,
     pub lender: String,
+}
+
+
+// Trying to reuse the channel_config structure and combine both the 
+// category mapping and client preferences 
+pub struct ChannelConfigWithSelected {
+    pub channel_config_id: i32,
+    pub category_mappings_id: i32,
+ 
+//    #[diesel(embed)]
+    pub channel: EmbedChannel,
+
+    pub permitted: String,  // This is from the category mapping
+    pub selected: String,   // This is the preference selection
 }
 
 

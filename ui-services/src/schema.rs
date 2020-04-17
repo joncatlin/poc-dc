@@ -1,5 +1,5 @@
 table! {
-    account (message_id, channel) {
+    account (message_id, account_id, channel) {
         message_id -> Varchar,
         channel -> Varchar,
         account_id -> Varchar,
@@ -55,9 +55,9 @@ table! {
         correspondence_id -> Int4,
         opt_out -> Varchar,
         retention_period -> Int4,
-        developer -> Nullable<Varchar>,
-        project -> Nullable<Varchar>,
-        lender -> Nullable<Varchar>,
+        developer -> Varchar,
+        project -> Varchar,
+        lender -> Varchar,
     }
 }
 
@@ -75,6 +75,21 @@ table! {
         p -> Nullable<Varchar>,
         l -> Nullable<Varchar>,
         msg -> Text,
+    }
+}
+
+table! {
+    dummy_client_preferences (client_preferences_id) {
+        client_preferences_id -> Int4,
+        category_id -> Int4,
+        correspondence_id -> Int4,
+        opt_out -> Varchar,
+        selected_opt_out -> Varchar,
+        retention_period -> Int4,
+        selected_retention_period -> Int4,
+        developer -> Varchar,
+        project -> Varchar,
+        lender -> Varchar,
     }
 }
 
@@ -108,9 +123,10 @@ joinable!(category_mappings -> corrs (correspondence_id));
 joinable!(channel_configs -> category_mappings (category_mappings_id));
 joinable!(channel_configs -> channels (channel_id));
 joinable!(client_pref_channel_configs -> channels (channel_id));
-joinable!(client_pref_channel_configs -> client_preferences (client_preferences_id));
 joinable!(client_preferences -> categories (category_id));
 joinable!(client_preferences -> corrs (correspondence_id));
+joinable!(dummy_client_preferences -> categories (category_id));
+joinable!(dummy_client_preferences -> corrs (correspondence_id));
 joinable!(templates -> languages (language_id));
 
 allow_tables_to_appear_in_same_query!(
@@ -123,6 +139,7 @@ allow_tables_to_appear_in_same_query!(
     client_preferences,
     corrs,
     dpl,
+    dummy_client_preferences,
     event,
     languages,
     templates,

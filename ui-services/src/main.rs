@@ -18,6 +18,7 @@ mod template_actions;
 mod corr_actions;
 mod category_mapping_actions;
 mod channel_config_actions;
+mod client_preference_actions;
 mod schema;
 
 
@@ -408,6 +409,28 @@ async fn upsert_category_correspondence_mappings(
 // }
 
 
+/*
+************************* CLIENT PREFERENCES ***********************************************************
+*/
+/// Get a list of all the client preferences.
+#[get("/ui-services/v1/client-preferences")]
+async fn get_client_preferences (
+    pool: web::Data<DbPool>,
+    obj: web::Json<models::ClientPreferencesQuery>,
+) -> Result<HttpResponse, Error> {
+
+    let conn = pool.get().expect("couldn't get db connection from pool");
+
+    // use web::block to offload blocking Diesel code without blocking server thread
+    let results = web::block(move || client_preference_actions::find_mapped_client_preferences(&obj, &conn))
+        .await
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
+
+    Ok(HttpResponse::Ok().json(results))
+}
 
 
 
@@ -420,95 +443,6 @@ async fn upsert_category_correspondence_mappings(
 
 
 
-
-/// Get a list of all the correspondences that have been mapped to a category.
-// #[get("/ui-services/v1/category-correspondence-mappings/mapped/{cat_id}")]
-// async fn get_category_corr_mappings (
-//     pool: web::Data<DbPool>,
-//     cat_id: web::Path<i32>,
-// ) -> Result<HttpResponse, Error> {
-
-//     let cat_id = cat_id.into_inner();
-//     let conn = pool.get().expect("couldn't get db connection from pool");
-
-//     // use web::block to offload blocking Diesel code without blocking server thread
-//     let results = web::block(move || category_mapping_actions::find_category_mappings(cat_id, &conn))
-//         .await
-//         .map_err(|e| {
-//             eprintln!("{}", e);
-//             HttpResponse::InternalServerError().finish()
-//         })?;
-
-//     Ok(HttpResponse::Ok().json(results))
-// }
-
-
-/// Create correspondences given an array of corrs
-// #[post("/ui-services/v1/category-correspondence-mappings/mapped")]
-// async fn add_category_corr_mappings(
-//     pool: web::Data<DbPool>,
-//     cats: web::Json<Vec<models::NewCategoryMapping>>,
-// ) -> Result<HttpResponse, Error> {
-//     let conn = pool.get().expect("couldn't get db connection from pool");
-
-
-//     // use web::block to offload blocking Diesel code without blocking server thread
-//     let results = web::block(move || category_mapping_actions::insert_new_category_mappings(&cats, &conn))
-//         .await
-//         .map_err(|e| {
-//             eprintln!("{}", e);
-//             HttpResponse::InternalServerError().finish()
-//         })?;
-
-//     Ok(HttpResponse::Ok().json(results))
-// }
-
-
-
-
-
-
-
-/// Get a list of templates
-// #[get("/ui-services/v1/templates")]
-// async fn get_templates (
-//     pool: web::Data<DbPool>,
-// ) -> Result<HttpResponse, Error> {
-
-//     let conn = pool.get().expect("couldn't get db connection from pool");
-
-//     // use web::block to offload blocking Diesel code without blocking server thread
-//     let results = web::block(move || template_actions::find_templates(&conn))
-//         .await
-//         .map_err(|e| {
-//             eprintln!("{}", e);
-//             HttpResponse::InternalServerError().finish()
-//         })?;
-
-//     Ok(HttpResponse::Ok().json(results))
-// }
-
-
-/// Get a template by its id
-// #[get("/ui-services/v1/templates/{obj_id}")]
-// async fn get_template (
-//     pool: web::Data<DbPool>,
-//     obj_id: web::Path<i32>,
-// ) -> Result<HttpResponse, Error> {
-
-//     let obj_id = obj_id.into_inner();
-//     let conn = pool.get().expect("couldn't get db connection from pool");
-
-//     // use web::block to offload blocking Diesel code without blocking server thread
-//     let results = web::block(move || template_actions::find_template(obj_id, &conn))
-//         .await
-//         .map_err(|e| {
-//             eprintln!("{}", e);
-//             HttpResponse::InternalServerError().finish()
-//         })?;
-
-//     Ok(HttpResponse::Ok().json(results))
-// }
 
 
 /// Create correspondences given an array of corrs
@@ -603,29 +537,11 @@ async fn main() -> std::io::Result<()> {
             .service(upload_template)
             .service(save_template)
 
-            // .service(
-            //     web::resource("/ui-services/v1/categories")
-            //         // change json extractor configuration
-            //         .app_data(web::Json::<Vec<models::Category>>::configure(|cfg| {
-            //             cfg.limit(4096).error_handler(|err, _req| {cfg.error_handler(json_error_handler)})
-            //         }))
-            //         .route(web::put().to(upsert_categories))
-            // )
+            .service(get_client_preferences)
 
-            // .service(
-            //     web::resource("/ui-services/v1/categories")
-            //         .data(web::JsonConfig::default().limit(1024).error_handler(json_error_handler)) // <- limit size of the payload (resource level)
-            //         .route(web::put().to(upsert_categories)),
-            // )
-
-            // .service(
-            //     web::resource("/ui-services/v1/categories")
-            //         .data(web::JsonConfig::default().limit(1024).error_handler(json_error_handler)) // <- limit size of the payload (resource level)
-            //         .route(web::put().to(delete_categories)),
-            // )
-
-            // ************** Register Error Handler for all  the models used
-
+            // Below are the data structures used. These need to be added 
+            // to the error handler so that a json error can be captured and 
+            // reported back to the caller
             .app_data(web::Json::<Vec<models::Category>>::configure(|cfg| {
                 cfg.error_handler(json_error_handler)
             }))
@@ -649,28 +565,17 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Json::<Vec<models::CategoryMappingsWithChannelConfig>>::configure(|cfg| {
                 cfg.error_handler(json_error_handler)
             }))
+
+            .app_data(web::Json::<models::ClientPreferencesQuery>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            
     })
     .bind(&bind)?
     .run()
     .await
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -698,7 +603,17 @@ async fn save_template(mut payload: Multipart) -> Result<HttpResponse, Error> {
             f = web::block(move || f.write_all(&data).map(|_| f)).await?;
         }
     }
+
+
+    // create a new chaennel id and return it to the caller
+    // upsert_new_channels(
+    //     upsert_list: &Vec<models::Channel>,
+    //     conn: &PgConnection,
+    
+
+
     Ok(HttpResponse::Ok().into())
+//    Ok(HttpResponse::Ok().json(results))
 }
 
 
@@ -716,22 +631,3 @@ fn upload_template() -> HttpResponse {
 
     HttpResponse::Ok().body(html)
 }
-
-// #[actix_rt::main]
-// async fn main() -> std::io::Result<()> {
-//     std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
-//     std::fs::create_dir_all("./tmp").unwrap();
-
-//     let ip = "0.0.0.0:3000";
-
-//     HttpServer::new(|| {
-//         App::new().wrap(middleware::Logger::default()).service(
-//             web::resource("/")
-//                 .route(web::get().to(index))
-//                 .route(web::post().to(save_file)),
-//         )
-//     })
-//     .bind(ip)?
-//     .run()
-//     .await
-// }

@@ -13,8 +13,8 @@ services:
     networks:
       - event-db
     ports:
-      - "50013:8080"
-#      - "8085:8080"
+#      - "50013:8080"
+      - "8085:8080"
     volumes:
     - type: bind
       source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/ui-services/template-temp

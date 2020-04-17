@@ -52,11 +52,15 @@ RUN pwd
 
 # Copy the built executable
 COPY --from=cargo-build /usr/src/channel_sender/target/x86_64-unknown-linux-musl/release/channel_sender .
-COPY *.json ./
+#COPY *.json ./
 
 # Create a volume for the templates
 RUN mkdir ./templates
 VOLUME ["/home/docker-user/templates"]
+
+# Create a volume for the templates
+RUN mkdir ./test-data
+VOLUME ["/home/docker-user/test-data"]
 
 # Create a volume for the generated pdf files
 RUN mkdir ./pdf-output

@@ -17,6 +17,10 @@ services:
       - type: bind
         source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/channel_sender/pdf-output
         target: /home/docker-user/pdf-output
+      - type: bind
+        source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/channel_sender/test-data
+        target: /home/docker-user/test-data
+        read_only: true
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka1:19092,kafka2:19092,kafka3:19092
       - KAFKA_CONSUMER_TOPIC=dc-msgs

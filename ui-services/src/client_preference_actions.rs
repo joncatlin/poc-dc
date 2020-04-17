@@ -1,88 +1,150 @@
-use diesel::prelude::*;
-use diesel::sql_types::Integer;
-//use actix_web::{web};
-//use actix_web::web::Bytes;
+//use diesel::prelude::*;
+//use diesel::sql_types::Integer;
 
-//mod models;
+use std::env;
+//use postgres::{Client, NoTls};
+
 use crate::models;
-//use crate::channel_actions;
+use std::vec::Vec;
 
+// pub fn find_mapped_client_preferences (
+//     query_prefs: &models::ClientPreferencesQuery, 
+//     conn: &PgConnection,
+// //) -> Result<Vec<models::ClientPreferencesWithChannelConfig>, diesel::result::Error> {
+// ) -> Result<Vec<models::ClientPreferences>, diesel::result::Error> {
 
-pub fn find_mapped_client_preferences (
-    query_prefs: <ClientPreferencesQuery>,
-    conn: &PgConnection,
-) -> Result<Vec<models::ClientPreferencesWithChannelConfig>, diesel::result::Error> {
+//     use diesel::sql_query;
 
-    use diesel::sql_query;
+//     let mut statement = "
+//         SELECT 
+//             cp.client_preferences_id,
+//             cat.category_id,
+//             cat.category_name,
+//             corrs.correspondence_id,
+//             corrs.correspondence_name,
+//             cp.opt_out AS selected_opt_out,
+//             cm.opt_out AS opt_out,
+//             cp.retention_period AS selected_retention_period,
+//             cp.retention_period AS retention_period,
+//             cp.developer,
+//             cp.project,
+//             cp.lender
+//         FROM client_preferences AS cp
+//         INNER JOIN categories AS cat ON cp.category_id = cat.category_id
+//         INNER JOIN corrs ON cp.correspondence_id = corrs.correspondence_id
+//         INNER JOIN category_mappings AS cm ON 
+//             cp.category_id = cm.category_id AND
+//             cp.correspondence_id = cm.correspondence_id
+//         WHERE 
+//     ".to_string();
 
-    let statement = "
-        SELECT 
-            cp.client_preferences_id,
-            cat.category_id,
-            cat.category_name,
-            corrs.correspondence_id,
-            corrs.correspondence_name,
-            cp.opt_out,
-            cp.retention_period
-        FROM client_preferences AS cp
-        INNER JOIN categories AS cat ON cp.category_id = cat.category_id
-        INNER JOIN corrs ON cp.correspondence_id = corrs.correspondence_id
-        WHERE cp.category_id = $1
-    ".to_string();
+//     // TODO check this is not susceptible to SQL injection etc
+//     // Construct the WHERE clause for Hierarchy to get the information needed
+//     statement.push_str(&build_sql_where_clause(&query_prefs.hierarchys));
+//     debug!("Statement produced is: {}", statement);
 
-    // Construct the WHERE clause to get the information needed
-    statement = statement.push(build_sql_where_clause(query_prefs.hierachys));
-    debug!("");
+//     // Constrcut the IN clause on the stastement if there are categories or correspondencs
+//     if query_prefs.categories.len > 0 {
+//         statement.push_str(" AND category_id ");
+//         statement.push_str(&build_sql_in_clause(&query_prefs.categories));
+//     }
+//     if query_prefs.correspondences.len > 0 {
+//         statement.push_str(" AND correspondence_id ");
+//         statement.push_str(&build_sql_in_clause(&query_prefs.correspondences));
+//     }
     
-    // Get the mappings without the channel configs because cannot determine how to do that in Diesel. So split the getting of the
-    // structures into two parts, the mappings first and then the channel configs associated with each mapping
-    let client_preferences: Vec<models::ClientPreferences> = sql_query(statement)
-        .bind::<Integer, _>(category_id)
-        .get_results(conn)
-        .expect("Error loading client preferences");
+//     // Get the mappings without the channel configs because cannot determine how to do that in Diesel. So split the getting of the
+//     // structures into two parts, the mappings first and then the channel configs associated with each mapping
+//     let client_preferences: Vec<models::ClientPreferences> = sql_query(statement.to_string())
+//         .bind::<Integer, _>(query_prefs.category_id)
+//         .get_results(conn)
+//         .expect("Error loading client preferences");
+// /*
+//     // Copy the mappings found into the final struct and at the same time get the channel_configs for each client prefs found
+//     let mut maps = Vec::<models::ClientPreferencesWithChannelConfig>::new();
+//     for client_prefs_map in client_preferences {
 
-    // Copy the mappings found into the final struct and at the same time get the channel_configs for each category mapping found
-    let mut maps = Vec::<models::CategoryMappingsWithChannelConfig>::new();
-    for cat_map in category_mappings {
+//         // Get the channel configs for this category_mapping_id using a SQL SELECT rather than the struct way
+//         // Lots of problems with trait errors
+//         let configs = sql_query("
+//             SELECT 
+//                 cfg.channel_config_id,
+//                 cfg.client_preferences_id,
+//                 chan.channel_id,
+//                 chan.channel_name,
+//                 cfg.permitted
+//             FROM client_pref_channel_configs AS cfg
+//             RIGHT OUTER JOIN channels AS chan 
+//             ON cfg.channel_id = chan.channel_id
+//             WHERE cfg.client_preferences_id = $1
+//             ORDER BY chan.channel_name
+//         ")
+//             .bind::<Integer, _>(client_prefs_map.client_preferences_id)
+//             .load::<models::ChannelConfig>(conn)
+//             .expect("Error loading channel configs");
 
-        // Get the channel configs for this category_mapping_id using a SQL SELECT rather than the struct way
-        // Lots of problems with trait errors
-        let configs = sql_query("
-            SELECT 
-                cfg.channel_config_id,
-                cfg.category_mappings_id,
-                chan.channel_id,
-                chan.channel_name,
-                cfg.permitted
-            FROM channel_configs AS cfg
-            RIGHT OUTER JOIN channels AS chan 
-            ON cfg.channel_id = chan.channel_id
-            WHERE cfg.category_mappings_id = $1
-            ORDER BY chan.channel_name
-        ")
-            .bind::<Integer, _>(cat_map.category_mappings_id)
-            .load::<models::ChannelConfig>(conn)
-            .expect("Error loading channel configs");
+//         // Create a new structure from the mappings data
+//         let new_struct = models::ClientPreferencesWithChannelConfig {
+//             client_preferences_id: client_prefs_map.client_preferences_id, 
+//             category: client_prefs_map.category,
+//             correspondence: client_prefs_map.correspondence,
+//             opt_out: client_prefs_map.opt_out,
+//             retention_period: client_prefs_map.retention_period,
+//             channel_config: configs,
+//             developer: client_prefs_map.developer,
+//             project: client_prefs_map.project,
+//             lender: client_prefs_map.lender,
+//         };
 
-        // Create a new structure from the mappings data
-        let new_struct = models::CategoryMappingsWithChannelConfig {
-            category_mappings_id: cat_map.category_mappings_id, 
-            category: cat_map.category,
-            correspondence: cat_map.correspondence,
-            opt_out: cat_map.opt_out,
-            retention_period: cat_map.retention_period,
-            channel_config: configs,
-        };
+//         // Add the struct to the vectors to be returned
+//         maps.push(new_struct);
+//     }
 
-        // Add the struct to the vectors to be returned
-        maps.push(new_struct);
-    }
+//     // Now get the category mappings to get the preferences from there so that they can be added to the structure as the preferences and the client prefs work as the selcted values
+//     // // Copy the mappings found into the final struct and at the same time get the channel_configs for each client prefs found
+//     // let mut maps = Vec::<models::ClientPreferencesWithChannelConfig>::new();
+//     // for client_prefs_map in client_preferences {
 
-    Ok(maps)
-}
+//     //     // Get the channel configs for this category_mapping_id using a SQL SELECT rather than the struct way
+//     //     // Lots of problems with trait errors
+//     //     let configs = sql_query("
+//     //         SELECT 
+//     //             cfg.channel_config_id,
+//     //             cfg.category_mappings_id,
+//     //             chan.channel_id,
+//     //             chan.channel_name,
+//     //             cfg.permitted
+//     //         FROM channel_configs AS cfg
+//     //         RIGHT OUTER JOIN channels AS chan 
+//     //         ON cfg.channel_id = chan.channel_id
+//     //         WHERE cfg.category_mappings_id = $1
+//     //         ORDER BY chan.channel_name
+//     //     ")
+//     //         .bind::<Integer, _>(cat_map.category_mappings_id)
+//     //         .load::<models::ChannelConfig>(conn)
+//     //         .expect("Error loading channel configs");
+
+//     //     // Create a new structure from the mappings data
+//     //     let new_struct = models::CategoryMappingsWithChannelConfig {
+//     //         category_mappings_id: cat_map.category_mappings_id, 
+//     //         category: cat_map.category,
+//     //         correspondence: cat_map.correspondence,
+//     //         opt_out: cat_map.opt_out,
+//     //         retention_period: cat_map.retention_period,
+//     //         channel_config: configs,
+//     //     };
+
+//     //     // Add the struct to the vectors to be returned
+//     //     maps.push(new_struct);
+//     // }
+
+//     Ok(maps)
+// */
+//     Ok(client_preferences)
+// }
 
 
-fn build_sql_where_clause (hierarchys: &Vec<Hierarchy>) -> String {
+fn build_sql_where_clause (hierarchys: &Vec<models::Hierarchy>) -> String {
 
     let mut clause = String::new();
     let mut first = true;
@@ -91,7 +153,7 @@ fn build_sql_where_clause (hierarchys: &Vec<Hierarchy>) -> String {
 
         if !first {
             // Put an OR at the beginning
-            statement.push_str(" OR ");
+            clause.push_str(" OR ");
         } else {
             first = false;
         }
@@ -115,6 +177,28 @@ fn build_sql_where_clause (hierarchys: &Vec<Hierarchy>) -> String {
 }
 
 
+
+fn build_sql_in_clause (in_list: &Vec<i32>) -> String {
+
+    let mut clause = String::new();
+    let mut first = true;
+
+    clause.push_str(&" IN ( ".to_string());
+    
+    for item in in_list {
+
+        if first {
+            // Put an , at the beginning as we are not the first part of the clause
+            first = false;
+        } else {
+            clause.push_str(&",".to_string());
+        }
+        clause.push_str(&item.to_string());
+    }
+
+    clause.push_str(&" ) ".to_string());
+    clause
+}
 
 
 // pub fn find_unmapped_client_preferences (
@@ -356,3 +440,131 @@ fn build_sql_where_clause (hierarchys: &Vec<Hierarchy>) -> String {
 //         Err(e) => error!("Error inserting channel_configs, error: {:?}", e),
 //     }
 // }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub fn find_mapped_client_preferences (
+    query_prefs: &models::ClientPreferencesQuery, 
+    conn: &PgConnection,
+//) -> Result<Vec<models::ClientPreferencesWithChannelConfig>, diesel::result::Error> {
+) -> Result<Vec<models::ClientPreferences>, diesel::result::Error> {
+
+//    use diesel::sql_query;
+
+    let mut statement = "
+        SELECT 
+            cp.client_preferences_id,
+            cat.category_id,
+            corrs.correspondence_id,
+            cm.opt_out AS opt_out,
+            cp.opt_out AS selected_opt_out,
+            cp.retention_period AS retention_period,
+            cp.retention_period AS selected_retention_period,
+            cp.developer,
+            cp.project,
+            cp.lender
+        FROM client_preferences AS cp
+        INNER JOIN categories AS cat ON cp.category_id = cat.category_id
+        INNER JOIN corrs ON cp.correspondence_id = corrs.correspondence_id
+        INNER JOIN category_mappings AS cm ON 
+            cp.category_id = cm.category_id AND
+            cp.correspondence_id = cm.correspondence_id
+        WHERE 
+    ".to_string();
+
+    // TODO check this is not susceptible to SQL injection etc
+    // Construct the WHERE clause for Hierarchy to get the information needed
+    statement.push_str(&build_sql_where_clause(&query_prefs.hierarchys));
+    debug!("Statement produced is: {}", statement);
+
+    // Constrcut the IN clause on the stastement if there are categories or correspondencs
+    if query_prefs.categories.len() > 0 {
+        statement.push_str(" AND category_id ");
+        statement.push_str(&build_sql_in_clause(&query_prefs.categories));
+    }
+    if query_prefs.correspondences.len() > 0 {
+        statement.push_str(" AND correspondence_id ");
+        statement.push_str(&build_sql_in_clause(&query_prefs.correspondences));
+    }
+    
+    // Get the mappings without the channel configs because cannot determine how to do that in Diesel. So split the getting of the
+    // structures into two parts, the mappings first and then the channel configs associated with each mapping
+    // let client_preferences: Vec<models::ClientPreferences> = sql_query(statement.to_string())
+    //     .get_results(conn)
+    //     .expect("Error loading client preferences");
+    
+//    let db_url = env::var("DATABASE_URL").expect("Failed to get the env variable DATABASE_URL");
+//    let pg_client = conn::connect(&db_url, NoTls).expect("Failed to get a postgres DB connection");
+
+
+    let mut client_preferences = Vec::<models::ClientPreferences>::new();
+    
+//    for pref in pg_client.query(&*statement, &[]).expect("Query failed") {
+    for pref in conn.query(&*statement, &[]).expect("Query failed") {
+            let cp = models::ClientPreferences {
+
+            client_preferences_id: pref.get("client_preferences_id"),
+            category_id: pref.get("category_id"),
+          
+            correspondence_id: pref.get("correspondence_id"),
+            
+            opt_out: pref.get("opt_out"),
+            selected_opt_out: pref.get("selected_opt_out"),
+            retention_period: pref.get("retention_period"),
+            selected_retention_period: pref.get("selected_retention_period"),
+         
+            developer: pref.get("developer"),
+            project: pref.get("project"),
+            lender: pref.get("lender"),
+        };
+        client_preferences.push(cp);
+    }
+
+    debug!("Retrieved client preferences: {:?}", client_preferences);
+
+    Ok(client_preferences)
+}
+
+
