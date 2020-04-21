@@ -1,0 +1,1 @@
+SELECT $table_fields FROM dc_ui.language ORDER BY language_name ASC;

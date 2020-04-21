@@ -1,0 +1,1 @@
+SELECT $table_fields FROM dc_ui.category ORDER BY category_name ASC;

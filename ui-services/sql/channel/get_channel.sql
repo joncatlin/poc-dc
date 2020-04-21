@@ -1,0 +1,1 @@
+SELECT $table_fields FROM dc_ui.channel ORDER BY channel_name ASC;

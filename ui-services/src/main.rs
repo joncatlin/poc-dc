@@ -1,398 +1,124 @@
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-extern crate chrono;
+#[macro_use] extern crate log;
+#[macro_use] extern crate postgres_derive;
 
-#[macro_use]
-extern crate diesel;
+use env_logger;
 
-use actix_web::{get, middleware, post, put, delete, web, App, Error, HttpResponse, HttpServer, HttpRequest, FromRequest, error, };
-use diesel::prelude::*;
-use diesel::r2d2::{self, ConnectionManager};
+// Do not mess with this statement as the JSon error handler starts to break. Not sure why!!!!
+use actix_web::{web, App, HttpResponse, HttpServer, HttpRequest, FromRequest, error, };
 
+use dotenv::dotenv;
+use tokio_postgres::NoTls;
+
+// Modules
+mod handlers;
+mod app_errors;
 mod models;
-mod category_actions;
-mod language_actions;
-mod channel_actions;
-mod template_actions;
-mod corr_actions;
-mod category_mapping_actions;
-mod channel_config_actions;
-mod client_preference_actions;
-mod schema;
+mod config;
+mod db;
+
+// Crate use statements
+use crate::handlers::{channel, category, correspondence, language, category_mapping, channel_config};
+
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+
+    env_logger::init();
+
+    dotenv().ok();
+
+    let config = crate::config::Config::from_env().unwrap();
+    let pool = config.pg.create_pool(NoTls).unwrap();
+
+    let server = HttpServer::new(move || {
+        App::new()
+            .data(pool.clone())
+            .service(channel::get_channels)
+            .service(channel::get_channel_by_name)
+            .service(channel::upsert_channels)
+            .service(channel::delete_channels)
+
+            .service(category::get_categories)
+            .service(category::upsert_categories)
+            .service(category::delete_categories)
+
+            .service(correspondence::get_correspondences)
+            .service(correspondence::upsert_correspondences)
+            .service(correspondence::delete_correspondences)
+
+            .service(language::get_languages)
+            .service(language::upsert_languages)
+            .service(language::delete_languages)
 
 
-type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
+            .service(category_mapping::get_mapped_categories)
+            .service(category_mapping::get_unmapped_correspondences)
+            .service(category_mapping::upsert_category_mappings)
+            .service(category_mapping::delete_category_mappings)
 
-use std::io::Write;
-
-use actix_multipart::Multipart;
-//use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer};
-use futures::{StreamExt, TryStreamExt};
+            .service(channel_config::get_channel_configs)
+            .service(channel_config::upsert_channel_configs)
+            .service(channel_config::delete_channel_configs)
 
 
-/*
-************************* CATEGORIES ***********************************************************
-*/
-/// Get a list of all the categories that have been defined.
-#[get("/ui-services/v1/categories")]
-async fn get_categories(
-    pool: web::Data<DbPool>,
-) -> Result<HttpResponse, Error> {
 
-    let conn = pool.get().expect("couldn't get db connection from pool");
+            // Below are the data structures used. These need to be added 
+            // to the error handler so that a json error can be captured and 
+            // reported back to the caller
+            // TODO. Look into putting these into a seperate file. There is a mechanism to do that.
+            .app_data(web::Json::<Vec<models::Channel>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
 
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || category_actions::find_categories(&conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
+            .app_data(web::Json::<Vec<models::Category>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
 
-    Ok(HttpResponse::Ok().json(results))
+            .app_data(web::Json::<Vec<models::Correspondence>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            .app_data(web::Json::<Vec<models::Language>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            .app_data(web::Json::<Vec<models::CategoryMapping>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+            .app_data(web::Json::<Vec<models::ChannelConfig>>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
+
+        })
+        .bind(config.server_addr.clone())?
+        .run();
+
+    info!("Server running on internal container port at http://{}/", config.server_addr);
+
+    server.await
 }
 
 
-/// Create categories given an array of categories
-#[put("/ui-services/v1/categories")]
-async fn upsert_categories(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::Category>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
+//***********************************************************************************
+fn json_error_handler(err: error::JsonPayloadError, req: &HttpRequest) -> error::Error {
+    use actix_web::error::JsonPayloadError;
 
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || category_actions::upsert_new_categories(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
+    let detail = err.to_string();
+    let resp = match &err {
+        JsonPayloadError::ContentType => {
+            HttpResponse::UnsupportedMediaType().body(detail)
+        }
+        JsonPayloadError::Deserialize(json_err) if json_err.is_data() => {
+            HttpResponse::UnprocessableEntity().body(detail)
+        }
+        _ => HttpResponse::BadRequest().body(detail),
+    };
 
-    Ok(HttpResponse::Ok().json(results))
+    warn!("Client calling API is doing something wrong. Message is: {:?}", req);
+
+    actix_web::error::InternalError::from_response(err, resp).into()
 }
 
-
-/// Delete a list of categories
-#[delete("/ui-services/v1/categories")]
-async fn delete_categories(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::Category>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || category_actions::delete_existing_categories(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/*
-************************* CORRESPONDENCES ***********************************************************
-*/
-/// Get a list of all the correspondences that have been defined.
-#[get("/ui-services/v1/correspondences")]
-async fn get_correspondences(
-    pool: web::Data<DbPool>,
-) -> Result<HttpResponse, Error> {
-
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || corr_actions::find_correspondences(&conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Create correspondences given an array of correspondences
-#[put("/ui-services/v1/correspondences")]
-async fn upsert_correspondences(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::Correspondence>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || corr_actions::upsert_new_correspondences(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Delete a list of correspondences
-#[delete("/ui-services/v1/correspondences")]
-async fn delete_correspondences(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::Correspondence>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || corr_actions::delete_existing_correspondences(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-//RUBBISH
-
-
-/*
-************************* CHANNELS ***********************************************************
-*/
-/// Get a list of all the channels that have been defined.
-#[get("/ui-services/v1/channels")]
-async fn get_channels(
-    pool: web::Data<DbPool>,
-) -> Result<HttpResponse, Error> {
-
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || channel_actions::find_channels(&conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Get a list of all the channels that have been defined.
-#[get("/ui-services/v1/channels/{chan_name}")]
-async fn get_channel_by_name(
-    pool: web::Data<DbPool>,
-    chan_name: web::Path<String>,
-) -> Result<HttpResponse, Error> {
-
-    let chan_name = chan_name.into_inner();
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || channel_actions::find_channel_by_name(chan_name, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Create channels given an array of channels
-#[put("/ui-services/v1/channels")]
-async fn upsert_channels(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::Channel>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || channel_actions::upsert_new_channels(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Delete a list of channels
-#[delete("/ui-services/v1/channels")]
-async fn delete_channels(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::Channel>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || channel_actions::delete_existing_channels(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-
-/*
-************************* LANGUAGES ***********************************************************
-*/
-/// Get a list of all the languages that have been defined.
-#[get("/ui-services/v1/languages")]
-async fn get_languages(
-    pool: web::Data<DbPool>,
-) -> Result<HttpResponse, Error> {
-
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || language_actions::find_languages(&conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Create languages given an array of languages
-#[put("/ui-services/v1/languages")]
-async fn upsert_languages(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::Language>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || language_actions::upsert_new_languages(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-/// Delete a list of languages
-#[delete("/ui-services/v1/languages")]
-async fn delete_languages(
-    pool: web::Data<DbPool>,
-    cats: web::Json<Vec<models::Language>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || language_actions::delete_existing_languages(&cats, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/*
-************************* CATEGORY to CORRESPONDENCE MAPPING ***********************************************************
-*/
-/// Get a list of all the correspondences that have been mapped to a category.
-#[get("/ui-services/v1/category-correspondence-mappings/mapped/{cat_id}")]
-async fn get_mapped_category_corr (
-    pool: web::Data<DbPool>,
-    cat_id: web::Path<i32>,
-) -> Result<HttpResponse, Error> {
-
-    let cat_id = cat_id.into_inner();
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || category_mapping_actions::find_mapped_category_corrs(cat_id, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Get a list of all the correspondences that are not mapped
-#[get("/ui-services/v1/category-correspondence-mappings/unmapped")]
-async fn get_unmapped_category_corr(
-    pool: web::Data<DbPool>,
-) -> Result<HttpResponse, Error> {
-
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || category_mapping_actions::find_unmapped_category_corrs(&conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Delete category correspondence mappings given a category id
-#[delete("/ui-services/v1/category-correspondence-mappings/mapped/{cat_id}")]
-async fn delete_mapped_category_corr(
-    pool: web::Data<DbPool>,
-    cat_maps: web::Json<Vec<i32>>,
-    cat_id: web::Path<i32>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let cat_id = cat_id.into_inner();
-    let results = web::block(move || category_mapping_actions::delete_existing_category_mappings(cat_id, &cat_maps, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-/// Upsert category correspondence mappings given a category id
-#[put("/ui-services/v1/category-correspondence-mappings/mapped")]
-async fn upsert_category_correspondence_mappings(
-    pool: web::Data<DbPool>,
-    cat_maps: web::Json<Vec<models::CategoryMappingsWithChannelConfig>>,
-) -> Result<HttpResponse, Error> {
-
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || category_mapping_actions::upsert_new_category_mappings(&cat_maps, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
 
 // ***************** FUTURE IN CASE WE NEED THIS
 // /// This handler manually load request payload and parse json-rust
@@ -408,226 +134,3 @@ async fn upsert_category_correspondence_mappings(
 //         .body(injson.dump()))
 // }
 
-
-/*
-************************* CLIENT PREFERENCES ***********************************************************
-*/
-/// Get a list of all the client preferences.
-#[get("/ui-services/v1/client-preferences")]
-async fn get_client_preferences (
-    pool: web::Data<DbPool>,
-    obj: web::Json<models::ClientPreferencesQuery>,
-) -> Result<HttpResponse, Error> {
-
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || client_preference_actions::find_mapped_client_preferences(&obj, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/// Create correspondences given an array of corrs
-#[post("/ui-services/v1/templates")]
-async fn add_templates(
-    pool: web::Data<DbPool>,
-    objs: web::Json<Vec<models::NewTemplate>>,
-) -> Result<HttpResponse, Error> {
-    let conn = pool.get().expect("couldn't get db connection from pool");
-
-
-    // use web::block to offload blocking Diesel code without blocking server thread
-    let results = web::block(move || template_actions::insert_templates(&objs, &conn))
-        .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
-
-    Ok(HttpResponse::Ok().json(results))
-}
-
-
-
-
-
-
-//***********************************************************************************
-fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error::Error {
-    use actix_web::error::JsonPayloadError;
-
-    let detail = err.to_string();
-    let resp = match &err {
-        JsonPayloadError::ContentType => {
-            HttpResponse::UnsupportedMediaType().body(detail)
-        }
-        JsonPayloadError::Deserialize(json_err) if json_err.is_data() => {
-            HttpResponse::UnprocessableEntity().body(detail)
-        }
-        _ => HttpResponse::BadRequest().body(detail),
-    };
-    error::InternalError::from_response(err, resp).into()
-}
-
-
-
-//***********************************************************************************
-#[actix_rt::main]
-async fn main() -> std::io::Result<()> {
-    env_logger::init();
-
-    // set up database connection pool
-    let connspec = std::env::var("DATABASE_URL").expect("DATABASE_URL");
-    let manager = ConnectionManager::<PgConnection>::new(connspec);
-    let pool = r2d2::Pool::builder()
-        .build(manager)
-        .expect("Failed to create pool.");
-
-    let bind = "0.0.0.0:8080";
-
-    println!("Starting server at: {}", &bind);
-
-    // Start HTTP server
-    HttpServer::new(move || {
-        App::new()
-            // set up DB pool to be used with web::Data<Pool> extractor
-            .data(pool.clone())
-            .wrap(middleware::Logger::default())
-
-            .service(get_categories)
-            .service(upsert_categories)
-            .service(delete_categories)
-
-            .service(get_correspondences)
-            .service(upsert_correspondences)
-            .service(delete_correspondences)
-
-            .service(get_channels)
-            .service(get_channel_by_name)
-            .service(upsert_channels)
-            .service(delete_channels)
-
-            .service(get_languages)
-            .service(upsert_languages)
-            .service(delete_languages)
-
-            .service(get_mapped_category_corr)
-            .service(get_unmapped_category_corr)
-            .service(delete_mapped_category_corr)
-            .service(upsert_category_correspondence_mappings)
-
-            .service(upload_template)
-            .service(save_template)
-
-            .service(get_client_preferences)
-
-            // Below are the data structures used. These need to be added 
-            // to the error handler so that a json error can be captured and 
-            // reported back to the caller
-            .app_data(web::Json::<Vec<models::Category>>::configure(|cfg| {
-                cfg.error_handler(json_error_handler)
-            }))
-
-            .app_data(web::Json::<Vec<models::Correspondence>>::configure(|cfg| {
-                cfg.error_handler(json_error_handler)
-            }))
-
-            .app_data(web::Json::<Vec<models::Channel>>::configure(|cfg| {
-                cfg.error_handler(json_error_handler)
-            }))
-
-            .app_data(web::Json::<Vec<models::Language>>::configure(|cfg| {
-                cfg.error_handler(json_error_handler)
-            }))
-
-            .app_data(web::Json::<Vec<i32>>::configure(|cfg| {
-                cfg.error_handler(json_error_handler)
-            }))
-
-            .app_data(web::Json::<Vec<models::CategoryMappingsWithChannelConfig>>::configure(|cfg| {
-                cfg.error_handler(json_error_handler)
-            }))
-
-            .app_data(web::Json::<models::ClientPreferencesQuery>::configure(|cfg| {
-                cfg.error_handler(json_error_handler)
-            }))
-
-            
-    })
-    .bind(&bind)?
-    .run()
-    .await
-}
-
-
-
-// TODO. Upload the file not using the filenme in the form, but use a different mechanism
-// that cannot be guessed by the uploader
-// TODO. Ensure the file permissions are correct
-// TODO. Once complete the file should be moved from the directory to its final location with the correct name
-#[post("/ui-services/v1/templates/file-upload")]
-async fn save_template(mut payload: Multipart) -> Result<HttpResponse, Error> {
-    debug!("In save_template");
-    
-    // iterate over multipart stream
-    while let Ok(Some(mut field)) = payload.try_next().await {
-        let content_type = field.content_disposition().unwrap();
-        let filename = content_type.get_filename().unwrap();
-        let filepath = format!("./template_temp/{}", filename);
-        // File::create is blocking operation, use threadpool
-        let mut f = web::block(|| std::fs::File::create(filepath))
-            .await
-            .unwrap();
-        // Field in turn is stream of *Bytes* object
-        while let Some(chunk) = field.next().await {
-            let data = chunk.unwrap();
-            // filesystem operations are blocking, we have to use threadpool
-            f = web::block(move || f.write_all(&data).map(|_| f)).await?;
-        }
-    }
-
-
-    // create a new chaennel id and return it to the caller
-    // upsert_new_channels(
-    //     upsert_list: &Vec<models::Channel>,
-    //     conn: &PgConnection,
-    
-
-
-    Ok(HttpResponse::Ok().into())
-//    Ok(HttpResponse::Ok().json(results))
-}
-
-
-#[get("/ui-services/v1/templates/file-upload")]
-fn upload_template() -> HttpResponse {
-    let html = r#"<html>
-        <head><title>Upload Test</title></head>
-        <body>
-            <form target="/ui-services/v1/templates/file-upload" method="post" enctype="multipart/form-data">
-                <input type="file" multiple name="file"/>
-                <input type="submit" value="Submit"></button>
-            </form>
-        </body>
-    </html>"#;
-
-    HttpResponse::Ok().body(html)
-}

@@ -1,0 +1,1 @@
+SELECT $table_fields FROM dc_ui.channel WHERE channel_name = $1;

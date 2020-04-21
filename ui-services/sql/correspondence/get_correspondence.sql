@@ -1,0 +1,1 @@
+SELECT $table_fields FROM dc_ui.correspondence ORDER BY correspondence_name ASC;

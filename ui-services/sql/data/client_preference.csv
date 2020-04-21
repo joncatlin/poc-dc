@@ -1,0 +1,4 @@
+﻿client_preference_id,category_id,correspondence_id,opt_out,retention_period,developer,project,lender
+1,1,1,"1",365,"","",""
+2,1,1,"1",366,"100","",""
+3,1,1,"1",367,"200","",""
