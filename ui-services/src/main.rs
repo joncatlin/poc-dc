@@ -17,7 +17,8 @@ mod config;
 mod db;
 
 // Crate use statements
-use crate::handlers::{channel, category, correspondence, language, category_mapping, channel_config};
+//use crate::handlers::{channel, category, correspondence, language, category_mapping, channel_config, template_file};
+use crate::handlers::{channel, category, correspondence, language, category_mapping, channel_config, client_preference};
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
@@ -59,7 +60,13 @@ async fn main() -> std::io::Result<()> {
             .service(channel_config::upsert_channel_configs)
             .service(channel_config::delete_channel_configs)
 
+            .service(client_preference::get_client_preferences)
+            .service(client_preference::upsert_client_preferences)
+            .service(client_preference::delete_client_preferences)
 
+            // .service(template_file::upload_template_html)
+            // .service(template_file::upload_template)
+            // .service(template_file::download_template)
 
             // Below are the data structures used. These need to be added 
             // to the error handler so that a json error can be captured and 
@@ -89,6 +96,9 @@ async fn main() -> std::io::Result<()> {
                 cfg.error_handler(json_error_handler)
             }))
 
+            .app_data(web::Json::<models::ClientPreferenceQuery>::configure(|cfg| {
+                cfg.error_handler(json_error_handler)
+            }))
         })
         .bind(config.server_addr.clone())?
         .run();

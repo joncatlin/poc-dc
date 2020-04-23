@@ -18,7 +18,7 @@ pub struct NewChannel {
 }
 
 // ***************************** Categories ****************************************
-#[derive(Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
+#[derive(Clone, Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
 #[pg_mapper(table = "category")] 
 pub struct Category {
     pub category_id: i32,
@@ -46,7 +46,7 @@ pub struct NewLanguage {
 }
 
 // ***************************** Correspondences ****************************************
-#[derive(Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
+#[derive(Clone, Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
 #[pg_mapper(table = "correspondence")] 
 pub struct Correspondence {
     pub correspondence_id: i32,
@@ -99,7 +99,7 @@ pub struct NewChannelConfig {
 }
 
 // ***************************** Client Preferences ****************************************
-#[derive(Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
+#[derive(Clone, Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
 #[pg_mapper(table = "client_preference")] 
 pub struct ClientPreference {
     pub client_preference_id:  i32,
@@ -118,6 +118,7 @@ pub struct ClientPreference {
 // This struct is used for calls from the API. It differs from what the database structure is
 // bacause it needs the query criteria being used, so that it can return the correct data at
 // the end of the API call
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ClientPreferenceAPI {
     pub client_preferences: Vec<ClientPreference>,
     pub client_pref_query: ClientPreferenceQuery, 
@@ -128,9 +129,9 @@ pub struct ClientPreferenceAPI {
 // specific to a query. If it was not passed then the upsert would have no idea what the criteria was used to return data
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ClientPreferenceQuery {
-    pub category: Vec<Category>,
+    pub category: Category,
     pub correspondence: Vec<Correspondence>,
-    pub hierarchy: Vec<Hierarchy>,
+    pub hierarchy: Hierarchy,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -139,6 +140,13 @@ pub struct Hierarchy {
     pub project: String,
     pub lender: String,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ClientPreferenceDelete {
+    pub client_preference_id: i32,
+    pub client_pref_query: ClientPreferenceQuery,
+}
+
 
 // ***************************** Client Preference Channel Configs ****************************************
 #[derive(Clone, Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]

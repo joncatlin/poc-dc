@@ -9,12 +9,12 @@ services:
     environment:
       - DATABASE_URL=postgres://event_user:event_pwd@event-db:5432/events
       - RUST_BACKTRACE=full
-      - RUST_LOG=ui_services=debug
+      - RUST_LOG=debug
     networks:
       - event-db
     ports:
-#      - "50013:8080"
-      - "8085:8080"
+      - "50013:8080"
+#      - "8085:8080"
     volumes:
     - type: bind
       source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/ui-services/template-temp

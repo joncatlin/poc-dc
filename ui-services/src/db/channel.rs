@@ -50,6 +50,9 @@ pub async fn upsert_channels(
     let _insert_channel_config_stmt = include_str!("../../sql/channel_config/insert_channel_config_from_new_channel.sql");
     let insert_channel_config_stmt = client.prepare(&_insert_channel_config_stmt).await.unwrap();
 
+    let _insert_cp_channel_config_stmt = include_str!("../../sql/client_pref_channel_config/insert_cp_channel_config_from_new_channel.sql");
+    let insert_cp_channel_config_stmt = client.prepare(&_insert_cp_channel_config_stmt).await.unwrap();
+
     // TODO. Fix this if possible. Not sure how to do a bulk upsert with this framework so 
     // iterate through individual inserts
     for item in upsert_list {
@@ -59,6 +62,7 @@ pub async fn upsert_channels(
             // When inserting a new channel, all existing category mappings and client preferences need a 
             // channel_config created for them, that references the new channel
             client.query(&insert_channel_config_stmt, &[&new_id,]).await.unwrap();
+            client.query(&insert_cp_channel_config_stmt, &[&new_id,]).await.unwrap();
 
         } else {
             client.query(&update_stmt, &[&item.channel_name, &item.channel_id]).await.unwrap();
