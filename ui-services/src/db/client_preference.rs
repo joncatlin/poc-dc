@@ -13,10 +13,11 @@ pub async fn get_client_preferences(client: &Client,
 ) -> Result<Vec<ClientPreference>, MyError> {
     
     // Create the variable where clause depending on inputs
-    let where_clause: String = build_sql_where_clause (&client_prefs_query.hierarchy.developer, 
-        &client_prefs_query.hierarchy.project, &client_prefs_query.hierarchy.lender,
+    let where_clause: String = build_sql_where_clause (&client_prefs_query.dpl.developer, 
+        &client_prefs_query.dpl.project, &client_prefs_query.dpl.lender,
         client_prefs_query.category.category_id, 
-        client_prefs_query.correspondence.iter().map(|x| x.correspondence_id).collect(),
+//        client_prefs_query.correspondence.iter().map(|x| x.correspondence_id).collect(),
+        &client_prefs_query.correspondence,
     );
 
     // Create a temporary table that holds the DPL for the main query
@@ -95,7 +96,7 @@ pub async fn get_client_preferences(client: &Client,
 }
 
 fn build_sql_where_clause (developer: &String, project: &String, lender: &String,
-    category_id: i32, correspondence_ids: Vec<i32>) -> String {
+    category_id: i32, correspondence_ids: &Vec<i32>) -> String {
 
     let mut clause = String::new();
 
@@ -112,6 +113,7 @@ fn build_sql_where_clause (developer: &String, project: &String, lender: &String
 
     if correspondence_ids.len() != 0 {
 
+//        let mut in_clause = correspondence_ids.into_iter().map(|x| format!("{},", x)).collect::<String>();
         let mut in_clause = correspondence_ids.into_iter().map(|x| format!("{},", x)).collect::<String>();
         in_clause.truncate(in_clause.len()-1);
         clause.push_str(&*format!(" AND cm.correspondence_id IN ({}) ", in_clause.to_string()));

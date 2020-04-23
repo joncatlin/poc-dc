@@ -1,6 +1,6 @@
 use crate::{
     app_errors::MyError, 
-    models::{CategoryMapping, Correspondence, ChannelConfig, Category},
+    models::{CategoryMapping, Correspondence, ChannelConfig, Category, Channel},
     db::channel_config,
 };
 use deadpool_postgres::Client;
@@ -124,5 +124,52 @@ pub async fn delete_category_mappings(
     let cat_id = client.query(&delete_stmt, &[&cat_map_id,]).await.unwrap()[0].get("category_id");
 
     Ok(get_mapped_categories(&client, cat_id).await.unwrap())
+}
+
+
+// Get a category mapping given category_id and correspondence_id
+//pub async fn get_category_mapping(client: &Client, cat_map_query: &CategoryMappingQuery) -> Result<CategoryMapping, MyError> {
+pub async fn get_category_mapping(client: &Client, cat_id: i32, corr_id: i32) -> Result<CategoryMapping, MyError> {
+    let _stmt = include_str!("../../sql/category_mapping/get_category_mapping.sql");
+    let stmt = client.prepare(&_stmt).await.unwrap();
+
+//    let mut new_cat_maps = Vec::<CategoryMapping>::new();
+    let mut new_cat_map = CategoryMapping::new();
+
+    let mut first_time = true;
+
+    let rows = client
+        .query(&stmt, &[&cat_id, &corr_id,], )
+        .await?;
+    
+    for row in rows {
+
+        if first_time {
+
+            // Create a new cm struct and add it to the vector
+            new_cat_map.category_mapping_id = row.get("category_mapping_id");
+            new_cat_map.category.category_id = row.get("category_id");
+            new_cat_map.category.category_name = row.get("category_name");
+            new_cat_map.correspondence.correspondence_name = row.get("correspondence_name");
+            new_cat_map.correspondence.correspondence_id = row.get("correspondence_id");
+            new_cat_map.opt_out = row.get("opt_out");
+            new_cat_map.retention_period = row.get("retention_period");
+
+            first_time = false;
+        } 
+        
+        // Add client pref channel config details to existing cp struct
+        new_cat_map.channel_config.push(ChannelConfig {
+            channel_config_id: row.get("channel_config_id"),
+            category_mapping_id: row.get("category_mapping_id"),
+            channel: Channel {
+                channel_id: row.get("channel_id"),
+                channel_name: row.get("channel_name"),
+            },
+            permitted: row.get("permitted"),
+        });
+    }
+    
+    Ok(new_cat_map)
 }
 

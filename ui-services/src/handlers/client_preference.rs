@@ -1,9 +1,9 @@
 use crate::{db, app_errors::MyError, models::{ClientPreferenceQuery, ClientPreferenceAPI, ClientPreferenceDelete}};
-use actix_web::{get, put, delete, web, Error, HttpResponse};
+use actix_web::{post, put, delete, web, Error, HttpResponse};
 use deadpool_postgres::{Client, Pool};
 
 // ***************************** Client Preferences ****************************************
-#[get("/ui-services/v1/client-preference-mapping/mapped")]
+#[post("/ui-services/v1/client-preference-mapping/mapped")]
 pub async fn get_client_preferences(
     db_pool: web::Data<Pool>,
     client_pref_query: web::Json<ClientPreferenceQuery>,

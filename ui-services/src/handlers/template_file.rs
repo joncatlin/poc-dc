@@ -1,9 +1,12 @@
-use crate::{db, app_errors::MyError, models::{Language}};
+//use crate::{db, app_errors::MyError, models::{Language}};
 use actix_web::{get, post, web, Error, HttpResponse};
 use actix_multipart::Multipart;
+//use actix_web::error::ErrorNotFound;
 use futures::{StreamExt, TryStreamExt};
-use deadpool_postgres::{Client, Pool};
+//use deadpool_postgres::{Client, Pool};
 use std::io::Write;
+use actix_files::NamedFile;
+use std::path::PathBuf;
 
 // TODO. Ensure the file permissions are correct
 // TODO. Once complete the file should be moved from the directory to its final location with the correct name
@@ -55,28 +58,67 @@ fn upload_template_html() -> HttpResponse {
 }
 
 
+
+
+
+
+
+
+
+
+
+
+// #[get("/ui-services/v1/channels/{chan_name}")]
+// async fn get_channel_by_name(
+//     pool: web::Data<Pool>,
+//     name: web::Path<String>,
+// ) -> Result<HttpResponse, Error> {
+
+
+
+
+
+
+
+
 #[get("/ui-services/v1/template_files/file-download/{template_id}")]
-fn download_template(
+async fn download_template(
     template_id: web::Path<i32>
-) -> Result<HttpResponse, Error> {
-    use actix_files::NamedFile;
-//    use std::path::Path;
-    use std::path::PathBuf;
+) -> Result<NamedFile, Error> {
 
     let template_id = template_id.into_inner();
 
+    // Create the path to the file 
+    let mut path = PathBuf::new();
+    path.push(format!("./templates/template_id_{}.html", template_id));
 
-    // let path: PathBuf = req.match_info().query("filename").parse().unwrap();
-    // Ok(NamedFile::open(path)?)
-    let path = PathBuf::new(format!("./templates/template_id_{}", template_id));
-
-    if path.exists() {
-        return Ok(NamedFile::open(path)?)
-    } else {
-        // Return 404
-    }
+//    if path.exists() {
+        return Ok(NamedFile::open(path)?);
+//     } else {
+//         // Return 404
+// //        return ErrorNotFound();
+//    }
 }
 
+
+#[get("/ui-services/v1/documents/digital-communication-demo/{doc_id}")]
+async fn download_document(
+    doc_id: web::Path<String>
+) -> Result<NamedFile, Error> {
+
+    let doc_id = doc_id.into_inner();
+
+    // Create the path to the file 
+    let mut path = PathBuf::new();
+    path.push(format!("./documents/{}", doc_id));
+
+//    if path.exists() {
+        return Ok(NamedFile::open(path)?);
+//     } else {
+//         // Return 404
+// //        return ErrorNotFound();
+//    }
+}
 
 
 
@@ -96,12 +138,3 @@ fn download_template(
 //     Ok(NamedFile::open(path)?)
 // }
 
-// #[actix_rt::main]
-// async fn main() -> std::io::Result<()> {
-//     use actix_web::{web, App, HttpServer};
-
-//     HttpServer::new(|| App::new().route("/{filename:.*}", web::get().to(index)))
-//         .bind("127.0.0.1:8088")?
-//         .run()
-//         .await
-// }

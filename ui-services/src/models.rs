@@ -11,11 +11,11 @@ pub struct Channel {
 }
 
 
-#[derive(Debug, Deserialize, PostgresMapper, Serialize)]
-#[pg_mapper(table = "channel")] 
-pub struct NewChannel {
-    pub channel_name: String,
-}
+// #[derive(Debug, Deserialize, PostgresMapper, Serialize)]
+// #[pg_mapper(table = "channel")] 
+// pub struct NewChannel {
+//     pub channel_name: String,
+// }
 
 // ***************************** Categories ****************************************
 #[derive(Clone, Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
@@ -25,11 +25,11 @@ pub struct Category {
     pub category_name: String,
 }
 
-#[derive(Debug, Deserialize, PostgresMapper, Serialize)]
-#[pg_mapper(table = "category")] 
-pub struct NewCategory {
-    pub category_name: String,
-}
+// #[derive(Debug, Deserialize, PostgresMapper, Serialize)]
+// #[pg_mapper(table = "category")] 
+// pub struct NewCategory {
+//     pub category_name: String,
+// }
 
 // ***************************** Languages ****************************************
 #[derive(Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
@@ -39,11 +39,11 @@ pub struct Language {
     pub language_name: String,
 }
 
-#[derive(Debug, Deserialize, PostgresMapper, Serialize)]
-#[pg_mapper(table = "language")] 
-pub struct NewLanguage {
-    pub language_name: String,
-}
+// #[derive(Debug, Deserialize, PostgresMapper, Serialize)]
+// #[pg_mapper(table = "language")] 
+// pub struct NewLanguage {
+//     pub language_name: String,
+// }
 
 // ***************************** Correspondences ****************************************
 #[derive(Clone, Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
@@ -53,11 +53,11 @@ pub struct Correspondence {
     pub correspondence_name: String,
 }
 
-#[derive(Debug, Deserialize, PostgresMapper, Serialize)]
-#[pg_mapper(table = "correspondence")] 
-pub struct NewCorrespondence {
-    pub correspondence_name: String,
-}
+// #[derive(Debug, Deserialize, PostgresMapper, Serialize)]
+// #[pg_mapper(table = "correspondence")] 
+// pub struct NewCorrespondence {
+//     pub correspondence_name: String,
+// }
 
 // ***************************** CategoryMappings ****************************************
 #[derive(Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
@@ -71,14 +71,34 @@ pub struct CategoryMapping {
     pub channel_config: Vec<ChannelConfig>,
 }
 
-#[derive(Debug, Deserialize, PostgresMapper, Serialize)]
-#[pg_mapper(table = "category_mapping")] 
-pub struct NewCategoryMapping {
-    pub category_id: i32,
-    pub correspondence_id: i32,
-    pub opt_out: String,
-    pub retention_period: i32,
+impl CategoryMapping {
+    pub fn new() -> CategoryMapping {
+        CategoryMapping {
+            category_mapping_id: -1,
+            category: Category {
+                category_id: -1,
+                category_name: "".to_string(),
+            },
+            correspondence: Correspondence {
+                correspondence_id: -1,
+                correspondence_name: "".to_string(),
+            },
+            opt_out: "".to_string(),
+            retention_period: 1,
+            channel_config: Vec::<ChannelConfig>::new(),
+        }
+    }
 }
+
+// #[derive(Debug, Deserialize, PostgresMapper, Serialize)]
+// #[pg_mapper(table = "category_mapping")] 
+// pub struct NewCategoryMapping {
+//     pub category_id: i32,
+//     pub correspondence_id: i32,
+//     pub opt_out: String,
+//     pub retention_period: i32,
+// }
+
 
 // ***************************** Channel Configs ****************************************
 #[derive(Clone, Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
@@ -90,13 +110,13 @@ pub struct ChannelConfig {
     pub permitted: String,
 }
 
-#[derive(Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
-#[pg_mapper(table = "channel_config")] 
-pub struct NewChannelConfig {
-    pub category_mapping_id: i32,
-    pub channel_id: i32,
-    pub permitted: String,
-}
+// #[derive(Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
+// #[pg_mapper(table = "channel_config")] 
+// pub struct NewChannelConfig {
+//     pub category_mapping_id: i32,
+//     pub channel_id: i32,
+//     pub permitted: String,
+// }
 
 // ***************************** Client Preferences ****************************************
 #[derive(Clone, Debug, Deserialize, PostgresMapper, Serialize, ToSql, FromSql)]
@@ -130,12 +150,18 @@ pub struct ClientPreferenceAPI {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ClientPreferenceQuery {
     pub category: Category,
-    pub correspondence: Vec<Correspondence>,
-    pub hierarchy: Hierarchy,
+//    pub correspondence: Vec<Correspondence>,
+    pub correspondence: Vec<i32>,
+    pub dpl: DPL,
 }
 
+// {"category":{"category_id":1,"category_name":"Statements"},"correspondence":[2,1],"dpl":{"developer":"100","project":null,"lender":null}}
+
+
+
+
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Hierarchy {
+pub struct DPL {
     pub developer: String,
     pub project: String,
     pub lender: String,

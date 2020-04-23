@@ -18,7 +18,7 @@ mod db;
 
 // Crate use statements
 //use crate::handlers::{channel, category, correspondence, language, category_mapping, channel_config, template_file};
-use crate::handlers::{channel, category, correspondence, language, category_mapping, channel_config, client_preference};
+use crate::handlers::{channel, category, correspondence, language, category_mapping, channel_config, client_preference, template_file};
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
@@ -55,6 +55,7 @@ async fn main() -> std::io::Result<()> {
             .service(category_mapping::get_unmapped_correspondences)
             .service(category_mapping::upsert_category_mappings)
             .service(category_mapping::delete_category_mappings)
+            .service(category_mapping::get_category_mapping)
 
             .service(channel_config::get_channel_configs)
             .service(channel_config::upsert_channel_configs)
@@ -64,9 +65,10 @@ async fn main() -> std::io::Result<()> {
             .service(client_preference::upsert_client_preferences)
             .service(client_preference::delete_client_preferences)
 
-            // .service(template_file::upload_template_html)
-            // .service(template_file::upload_template)
-            // .service(template_file::download_template)
+            .service(template_file::upload_template_html)
+            .service(template_file::upload_template)
+            .service(template_file::download_template)
+            .service(template_file::download_document)
 
             // Below are the data structures used. These need to be added 
             // to the error handler so that a json error can be captured and 
