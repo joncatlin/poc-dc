@@ -75,5 +75,8 @@ USER docker-user
 RUN mkdir ./template_temp
 VOLUME ["/home/docker-user/template_temp"]
 
+RUN mkdir ./documents
+VOLUME ["/home/docker-user/documents"]
+
 RUN ls -la
 CMD ["./ui-services"]

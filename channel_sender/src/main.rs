@@ -434,16 +434,6 @@ fn get_secret(name: &str) -> String {
 }
 
 
-
-// fn return_result(error_str:String)
-// -> Result<String, Box<dyn std::error::Error>> {
-
-//     return Err(Box::new(error_str));
-//     Ok("It should not get this far".to_string())
-// }
-
-
-
 //************************************************************************
 fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &String, 
     sms_vendor_token: &String, email_vendor_token: &String, pdf_service_url: &String,
@@ -485,7 +475,6 @@ fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &St
                 "pdf" =>        block_on(pdf::send_pdf(&account_fields, populated_template, &pdf_service_url, client)),
                 "whatsapp" =>   block_on(whatsapp::send_whatsapp(&account_fields, populated_template, &sms_vendor_account_id, &sms_vendor_token, client)),
                 ch =>           Ok("ERROR UNKNOWN CHANNEL".to_string()),
-//                ch =>           Err(Box::new(Error("Unknown channel"))),
             };
 
             if result.is_ok() {
@@ -496,22 +485,12 @@ fn process_request (msg: DC, mut hb: &mut Handlebars, sms_vendor_account_id: &St
                     datetime_rfc2822: Utc::now().to_rfc2822(),
                     event_specific_data: "".to_string(),
                 };
-//                let result = block_on(send_event(&producer, &producer_topic, msg_event).await.expect("Failed to send event"));
                 let result = block_on(send_event(&producer, &producer_topic, msg_event));
 
             } else {
                 error!("Failed to send event to the vendors service, account_id: {}, channel: {}, reason: {}", account, 
                     &*template_channel.channel, result.unwrap_err());
             }
-
-            // match result {
-            //     Ok(()) => info!("Sent {} for account_id: {} using template named: {}", 
-            //         &*template_channel.channel, &account_fields["account_id"], template_file_name),
-            //     Err(e) => error!("Failed to send {} for account_id: {} using template named: {}. Error is: {}", 
-            //         &*template_channel.channel, &account_fields["account_id"], template_file_name, e)
-            // }
-
-            // TODO Send a status message to the event store registering that a DC has occured for that account
         }
 
         // Unregister the template

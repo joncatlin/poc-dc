@@ -1,7 +1,7 @@
 use crate::{
     app_errors::MyError, 
-    models::{ClientPreference, ClientPreferenceAPI, ClientPreferenceQuery, 
-        Correspondence, ClientPrefChannelConfig, Category, Channel, ClientPreferenceDelete},
+    models::{ClientPreference, ClientPreferenceQuery, 
+        Correspondence, ClientPrefChannelConfig, Category, Channel, },
     db::client_pref_channel_config,
 };
 use deadpool_postgres::Client;
@@ -128,8 +128,8 @@ fn build_sql_where_clause (developer: &String, project: &String, lender: &String
 
 pub async fn upsert_client_preferences(
     client: &Client,
-    client_pref_api: &ClientPreferenceAPI,
-) -> Result<Vec<ClientPreference>, MyError> {
+    cps: &Vec<ClientPreference>,
+) -> Result<(), MyError> {
 
     // Create the insert and update statements
     let _insert_stmt = include_str!("../../sql/client_preference/insert_client_preference.sql");
@@ -140,7 +140,7 @@ pub async fn upsert_client_preferences(
 
     // TODO. Fix this if possible. Not sure how to do a bulk upsert with this framework so 
     // iterate through individual inserts
-    for item in &client_pref_api.client_preferences {
+    for item in cps {
 
         if item.client_preference_id == -1 {
             // Insert client preference
@@ -168,46 +168,114 @@ pub async fn upsert_client_preferences(
         }
     }
 
-    // Return the list of client preferences with all of the upserts included
-    Ok(get_client_preferences(&client, &client_pref_api.client_pref_query).await.unwrap())
+    Ok(())
 }
 
 
 pub async fn delete_client_preferences(
     client: &Client,
-    cp_delete: &ClientPreferenceDelete,
-) -> Result<Vec<ClientPreference>, MyError> {
+    cp: &ClientPreference,
+) -> Result<(), MyError> {
 
     // Create the delete statement
     let _delete_stmt = include_str!("../../sql/client_preference/delete_client_preference.sql");
     let delete_stmt = client.prepare(&_delete_stmt).await.unwrap();
 
 //    let cat_id = client.query(&delete_stmt, &[&cp_delete.client_preference_id,]).await.unwrap()[0].get("category_id");
-    client.query(&delete_stmt, &[&cp_delete.client_preference_id,]).await.unwrap();
+    client.query(&delete_stmt, &[&cp.client_preference_id,]).await.unwrap();
 
-    Ok(get_client_preferences(&client, &cp_delete.client_pref_query).await.unwrap())
+    Ok(())
 }
 
 
-// // TODO. 
-// fn empty_client_pref() -> ClientPreference {
-//     ClientPreference {
-//         client_preference_id: -1,
-//         category: Category {
-//             category_id: -1,
-//             category_name: "".to_string(),
-//         },
-//         correspondence: Correspondence {
-//             correspondence_id: -1,
-//             correspondence_name: "".to_string(),
-//         },
-//         opt_out: "".to_string(),
-//         selected_opt_out: "".to_string(),
-//         retention_period: -1,
-//         selected_retention_period: -1,
-//         developer: "".to_string(),
-//         project: "".to_string(),
-//         lender: "".to_string(),
-//         client_pref_channel_config: Vec::<ClientPrefChannelConfig>::new(),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Saved before modification to inputs and outputs to these functions
+// pub async fn upsert_client_preferences(
+//     client: &Client,
+//     client_pref_api: &ClientPreferenceAPI,
+// ) -> Result<Vec<ClientPreference>, MyError> {
+
+//     // Create the insert and update statements
+//     let _insert_stmt = include_str!("../../sql/client_preference/insert_client_preference.sql");
+//     let insert_stmt = client.prepare(&_insert_stmt).await.unwrap();
+
+//     let _update_stmt = include_str!("../../sql/client_preference/update_client_preference.sql");
+//     let update_stmt = client.prepare(&_update_stmt).await.unwrap();
+
+//     // TODO. Fix this if possible. Not sure how to do a bulk upsert with this framework so 
+//     // iterate through individual inserts
+//     for item in &client_pref_api.client_preferences {
+
+//         if item.client_preference_id == -1 {
+//             // Insert client preference
+//             let new_id = client.query(&insert_stmt, &[&item.category.category_id, 
+//                 &item.correspondence.correspondence_id, &item.selected_opt_out, &item.selected_retention_period,
+//                 &item.developer, &item.project, &item.lender],).await.unwrap()[0].get("client_preference_id");
+            
+//             // Build a vec of channel_config and insert the client_preference_id of the new entry
+//             let mut new_channel_configs = Vec::<ClientPrefChannelConfig>::new();
+//             for cfg in &item.client_pref_channel_config {
+//                 let mut new_cfg = cfg.clone();
+//                 new_cfg.client_preference_id = new_id;
+//                 new_channel_configs.push(new_cfg)
+//             }
+
+//             // Upsert client pref channel configs 
+//             client_pref_channel_config::upsert_client_pref_channel_configs(client, &new_channel_configs).await.unwrap();
+//         } else {
+//             client.query(&update_stmt, &[&item.category.category_id, 
+//                 &item.correspondence.correspondence_id, &item.selected_opt_out, &item.selected_retention_period,
+//                 &item.developer, &item.project, &item.lender, &item.client_preference_id]).await.unwrap();
+
+//             // Upsert client pref channel configs 
+//             client_pref_channel_config::upsert_client_pref_channel_configs(client, &item.client_pref_channel_config).await.unwrap();
+//         }
 //     }
+
+//     // Return the list of client preferences with all of the upserts included
+//     Ok(get_client_preferences(&client, &client_pref_api.client_pref_query).await.unwrap())
+// }
+
+
+// pub async fn delete_client_preferences(
+//     client: &Client,
+//     cp_delete: &ClientPreferenceDelete,
+// ) -> Result<Vec<ClientPreference>, MyError> {
+
+//     // Create the delete statement
+//     let _delete_stmt = include_str!("../../sql/client_preference/delete_client_preference.sql");
+//     let delete_stmt = client.prepare(&_delete_stmt).await.unwrap();
+
+// //    let cat_id = client.query(&delete_stmt, &[&cp_delete.client_preference_id,]).await.unwrap()[0].get("category_id");
+//     client.query(&delete_stmt, &[&cp_delete.client_preference_id,]).await.unwrap();
+
+//     Ok(get_client_preferences(&client, &cp_delete.client_pref_query).await.unwrap())
 // }

@@ -92,10 +92,14 @@ async fn produce(template_id: i32, language_id: i32, channel: &String, batches: 
 
     for (index, ab) in account_batches.iter().enumerate() {
 
-        let tc = TemplateChannel {template_id: template_id, language_id: language_id, channel: channel.clone()};
+        let tc1 = TemplateChannel {template_id: template_id, language_id: language_id, channel: "pdf".to_string()};
+        let tc2 = TemplateChannel {template_id: template_id, language_id: language_id, channel: "email".to_string()};
+        let tc3 = TemplateChannel {template_id: template_id, language_id: language_id, channel: "sms".to_string()};
+    
+        // let tc = TemplateChannel {template_id: template_id, language_id: language_id, channel: channel.clone()};
 
         let ident = format!("ID_{}", index);
-        let dc = DC {id: ident, template_channels: vec!(tc), accounts: ab.to_vec()};            
+        let dc = DC {id: ident, template_channels: vec!(tc1, tc2, tc3), accounts: ab.to_vec()};            
         let dc_string = serde_json::to_string(&dc).unwrap();
 
         info!("About to send payload: {:?}", dc_string);
@@ -139,14 +143,14 @@ async fn main() {
             .long("template_id")
             .help("The identifier of the template in the msg")
             .takes_value(true)
-            .default_value("1"),
+            .default_value("10"),
     )
     .arg(
         Arg::with_name("language_id")
             .long("l")
             .help("The identifier of the language to use in the msg")
             .takes_value(true)
-            .default_value("2"),
+            .default_value("1"),
     )
     .arg(
         Arg::with_name("channel")

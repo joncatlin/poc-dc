@@ -1,4 +1,4 @@
 ﻿category_mapping_id,category_id,correspondence_id,opt_out,retention_period
 1,1,1,"",365
-2,1,2,"1",366
-3,1,3,"1",367
+2,1,2,"",366
+3,1,3,"",367

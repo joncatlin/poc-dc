@@ -73,9 +73,13 @@ pub async fn send_pdf(account_fields: &Value, pdf_content: String, pdf_service_u
             
         info!("Conversion complete, started file creation");
 
+
+        
+
         match res {
             Ok(mut r) => {
-                let filename = format!("./pdf-output/pdf-{}.pdf", uuid);
+//                let filename = format!("./pdf-output/pdf-{}.pdf", uuid);
+                let filename = format!("./pdf-output/{}.pdf", account_fields["id"].as_str().unwrap());
                 let path = Path::new(&filename);
             
                 let mut file = std::fs::File::create(&path)?;

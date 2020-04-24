@@ -1,4 +1,4 @@
-use crate::{db, app_errors::MyError, models::{ClientPreferenceQuery, ClientPreferenceAPI, ClientPreferenceDelete}};
+use crate::{db, app_errors::MyError, models::{ClientPreferenceQuery, ClientPreference}};
 use actix_web::{post, put, delete, web, Error, HttpResponse};
 use deadpool_postgres::{Client, Pool};
 
@@ -21,14 +21,14 @@ pub async fn get_client_preferences(
 #[put("/ui-services/v1/client-preference-mapping/mapped")]
 async fn upsert_client_preferences(
     pool: web::Data<Pool>,
-    client_pref_api: web::Json<ClientPreferenceAPI>,
+    client_pref_api: web::Json<Vec<ClientPreference>>,
 ) -> Result<HttpResponse, Error> {
 
     let client: Client = pool.get().await.map_err(MyError::PoolError)?;
 
-    let client_prefs = db::client_preference::upsert_client_preferences(&client, &client_pref_api).await?;
+    db::client_preference::upsert_client_preferences(&client, &client_pref_api).await?;
 
-    Ok(HttpResponse::Ok().json(client_prefs))
+    Ok(HttpResponse::Ok().into())
 }
 
 
@@ -36,12 +36,12 @@ async fn upsert_client_preferences(
 #[delete("/ui-services/v1/client-preference-mapping/mapped")]
 async fn delete_client_preferences(
     pool: web::Data<Pool>,
-    client_pref_delete: web::Json<ClientPreferenceDelete>,
+    client_pref_delete: web::Json<ClientPreference>,
 ) -> Result<HttpResponse, Error> {
 
     let client: Client = pool.get().await.map_err(MyError::PoolError)?;
 
-    let client_prefs = db::client_preference::delete_client_preferences(&client, &client_pref_delete).await?;
+    db::client_preference::delete_client_preferences(&client, &client_pref_delete).await?;
 
-    Ok(HttpResponse::Ok().json(client_prefs))
+    Ok(HttpResponse::Ok().into())
 }

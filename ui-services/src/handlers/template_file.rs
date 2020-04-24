@@ -101,7 +101,7 @@ async fn download_template(
 }
 
 
-#[get("/ui-services/v1/documents/digital-communication-demo/{doc_id}")]
+#[get("/ui-services/v1/docs/dc/{doc_id}")]
 async fn download_document(
     doc_id: web::Path<String>
 ) -> Result<NamedFile, Error> {

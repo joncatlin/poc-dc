@@ -19,6 +19,9 @@ services:
     - type: bind
       source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/ui-services/template-temp
       target: /home/docker-user/template_temp
+    - type: bind
+      source: /mnt/swarm-shared/joncatlin-development/repos/poc-dc/channel_sender/pdf-output
+      target: /home/docker-user/documents
 
 networks:
   event-db:
