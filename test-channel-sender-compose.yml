@@ -19,7 +19,7 @@ services:
 
     # command: -b 1 -m 1 -c pdf  
     # command: -b 1 -m 1 -c pdf  
-    command: -b 1 -m 1 -c sms  
+    command: -b 2 -m 7 -c sms  
 
 networks:
   kafka:
