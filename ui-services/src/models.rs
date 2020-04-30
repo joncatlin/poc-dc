@@ -186,4 +186,16 @@ pub struct ClientPrefChannelConfig {
 }
 
 
+// ***************************** Templates ****************************************
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TestTemplate {
+    pub template_id: i32,
+    pub template_name: String,
+    pub document_id: String,
+    pub document_content: String,
+}
+
+
+
+
 

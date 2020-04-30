@@ -35,8 +35,6 @@ use handlebars::Handlebars;
 use log::{debug, error, warn, info};
 use chrono::Utc;
 
-// Remove this comment
-
 mod template;
 mod css_interface;
 mod email;
@@ -50,18 +48,10 @@ static SECRET_PATH: &str = "/run/secrets/"; // Dir where to get the docker swarm
 // Create a glob var to control whether or not to send msgs to the vendors. This is used to performance test the code
 // without actually sending data to a vendor that would incur charges
 lazy_static! {
-//    static ref EXAMPLE: u8 = 42;
-// static ref SEND_TO_VENDOR: bool = true;
     static ref SEND_TO_VENDOR: bool = env::var("SEND_TO_VENDOR").expect(
         "Could not find environment variable named SEND_TO_VENDOR. Without this variable being set the program will not work.")
         .parse().unwrap();
-    // static ref SEND_TO_VENDOR: String = env::var("SEND_TO_VENDOR").expect(
-    //     "Could not find environment variable named SEND_TO_VENDOR. Without this variable being set the program will not work.");
-    
 }
-
-
-
 
 // Structure to hold a template id and channel to be used to send the DC through
 #[derive(Debug)]
@@ -106,9 +96,6 @@ const FAILED_NO_RESEND: &str = "failed_no_resend";
 const OPENED: &str = "opened";
 const DELIVERED: &str = "delivered";
 
-
-
-
 // A context can be used to change the behavior of producers and consumers by adding callbacks
 // that will be executed by librdkafka.
 // This particular context sets up custom callbacks to log rebalancing events.
@@ -134,8 +121,6 @@ impl ConsumerContext for CustomContext {
 type LoggingConsumer = StreamConsumer<CustomContext>;
 
 
-
-
 // ****************************** NEW CODE ****************************************************
 fn create_consumer() -> LoggingConsumer {
     let context = CustomContext;
@@ -153,9 +138,10 @@ fn create_consumer() -> LoggingConsumer {
         .set("group.id", &*group_id)
         .set("bootstrap.servers", &*bootstrap_servers)
         .set("enable.partition.eof", "false")
+        .set("heartbeat.interval.ms", "2000")           // New. Should be 1/3 of session.timeout.ms
         .set("session.timeout.ms", "6000")
-        .set("enable.auto.commit", "true")
-        .set("auto.commit.interval.ms", "5000")
+        .set("enable.auto.commit", "false")             // Changed from true so consumer controls
+//        .set("auto.commit.interval.ms", "5000")
         .set("enable.auto.offset.store", "false")
         .create_with_context(context)
         .expect("Consumer creation failed");

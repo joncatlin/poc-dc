@@ -65,10 +65,11 @@ async fn main() -> std::io::Result<()> {
             .service(client_preference::upsert_client_preferences)
             .service(client_preference::delete_client_preferences)
 
-            .service(template_file::upload_template_html)
             .service(template_file::upload_template)
             .service(template_file::download_template)
             .service(template_file::download_document)
+            .service(template_file::upload)
+            .service(template_file::download)
 
             // Below are the data structures used. These need to be added 
             // to the error handler so that a json error can be captured and 
@@ -101,6 +102,15 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Json::<models::ClientPreferenceQuery>::configure(|cfg| {
                 cfg.error_handler(json_error_handler)
             }))
+
+            .app_data(web::Json::<models::TestTemplate>::configure(|cfg| {
+                cfg.limit(256*1024)
+                // .content_type(|mime| {
+                //     mime.type_() == mime::TEXT && mime.subtype() == mime::PLAIN
+                // })
+                .error_handler(json_error_handler)
+            }))
+
         })
         .bind(config.server_addr.clone())?
         .run();
@@ -112,10 +122,12 @@ async fn main() -> std::io::Result<()> {
 
 
 //***********************************************************************************
-fn json_error_handler(err: error::JsonPayloadError, req: &HttpRequest) -> error::Error {
+fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error::Error {
     use actix_web::error::JsonPayloadError;
 
     let detail = err.to_string();
+    warn!("Client calling API is doing something wrong. Message is: {:?}", &detail);
+
     let resp = match &err {
         JsonPayloadError::ContentType => {
             HttpResponse::UnsupportedMediaType().body(detail)
@@ -125,8 +137,6 @@ fn json_error_handler(err: error::JsonPayloadError, req: &HttpRequest) -> error:
         }
         _ => HttpResponse::BadRequest().body(detail),
     };
-
-    warn!("Client calling API is doing something wrong. Message is: {:?}", req);
 
     actix_web::error::InternalError::from_response(err, resp).into()
 }

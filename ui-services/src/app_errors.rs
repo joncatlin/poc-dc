@@ -3,6 +3,7 @@ use deadpool_postgres::PoolError;
 use derive_more::{Display, From};
 use tokio_pg_mapper::Error as PGMError;
 use tokio_postgres::error::Error as PGError;
+use base64::DecodeError;
 
 #[derive(Display, From, Debug)]
 pub enum MyError {
@@ -10,6 +11,7 @@ pub enum MyError {
     PGError(PGError),
     PGMError(PGMError),
     PoolError(PoolError),
+    DecodeError(DecodeError),
 }
 impl std::error::Error for MyError {}
 
@@ -20,6 +22,10 @@ impl ResponseError for MyError {
             MyError::PoolError(ref err) => {
                 HttpResponse::InternalServerError().body(err.to_string())
             }
+            MyError::DecodeError(ref err) => {
+                HttpResponse::InternalServerError().body(err.to_string())
+            }
+
             _ => HttpResponse::InternalServerError().finish(),
         }
     }

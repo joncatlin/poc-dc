@@ -72,11 +72,10 @@ RUN chown docker-user:docker-user .env
 USER docker-user
 
 # Create a volume for the template temp directory where files are uploaded 
-RUN mkdir ./template_temp
-VOLUME ["/home/docker-user/template_temp"]
+RUN mkdir ./templates
+VOLUME ["/home/docker-user/templates"]
 
 RUN mkdir ./documents
 VOLUME ["/home/docker-user/documents"]
 
-RUN ls -la
 CMD ["./ui-services"]
